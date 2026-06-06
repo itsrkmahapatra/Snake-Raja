@@ -10,21 +10,23 @@ import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED } from '../shared/types
 import * as THREE from 'three';
 import { Sphere, Grid, Stars, useTexture } from '@react-three/drei';
 
-useTexture.preload('/assets/medkit.png');
-useTexture.preload('/assets/ammo.png');
-useTexture.preload('/assets/armor.png');
-useTexture.preload('/assets/weapon.png');
-useTexture.preload('/assets/head_skull.png');
-useTexture.preload('/assets/head_robot.png');
-useTexture.preload('/assets/head_snake.png');
+const BASE = import.meta.env.BASE_URL || '/';
+
+useTexture.preload(BASE + 'assets/medkit.png');
+useTexture.preload(BASE + 'assets/ammo.png');
+useTexture.preload(BASE + 'assets/armor.png');
+useTexture.preload(BASE + 'assets/weapon.png');
+useTexture.preload(BASE + 'assets/head_skull.png');
+useTexture.preload(BASE + 'assets/head_robot.png');
+useTexture.preload(BASE + 'assets/head_snake.png');
 
 const localCollectedLoot = new Set<string>();
 
 function Snake({ playerId, color, headType, isLocal }: { playerId: string, color: string, headType: string, isLocal: boolean }) {
   const imagePaths = {
-    skull: '/assets/head_skull.png',
-    robot: '/assets/head_robot.png',
-    snake: '/assets/head_snake.png',
+    skull: BASE + 'assets/head_skull.png',
+    robot: BASE + 'assets/head_robot.png',
+    snake: BASE + 'assets/head_snake.png',
   };
   const imagePath = imagePaths[headType as keyof typeof imagePaths] || imagePaths.snake;
   const texture = useTexture(imagePath);
@@ -156,10 +158,10 @@ function ImageInstanced({ textureUrl, type, timeRef, dummy }: { textureUrl: stri
 
 function LootItems() {
   const images = {
-    medkit: '/assets/medkit.png',
-    ammo: '/assets/ammo.png',
-    armor: '/assets/armor.png',
-    weapon: '/assets/weapon.png'
+    medkit: BASE + 'assets/medkit.png',
+    ammo: BASE + 'assets/ammo.png',
+    armor: BASE + 'assets/armor.png',
+    weapon: BASE + 'assets/weapon.png'
   };
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
