@@ -31,6 +31,8 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
+        env:
+          VITE_WS_URL: "https://snake-raja.onrender.com"
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
