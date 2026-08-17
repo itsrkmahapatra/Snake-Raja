@@ -180,7 +180,7 @@ function LootItems() {
 
 export function GameScene() {
   const { gameState, playerId, sendPlayerState, sendCollectLoot } = useGameStore();
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const inputs = useRef({ left: false, right: false, boost: false });
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const [lightTarget] = useState(() => new THREE.Object3D());
