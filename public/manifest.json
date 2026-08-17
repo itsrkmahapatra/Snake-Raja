@@ -1,0 +1,19 @@
+{
+  "name": "Snake Raja - 3D Mobile Multiplayer Snake Game",
+  "short_name": "Snake Raja",
+  "description": "Play Snake Raja, the ultimate real-time 3D mobile multiplayer snake survival battleground in your browser. Steer, boost, loot power-ups, and dominate the leaderboard!",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050505",
+  "theme_color": "#ffaa00",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "action"]
+}
