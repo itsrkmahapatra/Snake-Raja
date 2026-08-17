@@ -70,12 +70,12 @@ export function UI() {
         
         {/* Left Stats Pill & Brand */}
         <div className="flex flex-col gap-1.5 pointer-events-auto max-w-[55%]">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-orange-500 drop-shadow-[0_0_10px_rgba(255,170,0,0.5)]">
               SNAKE RAJA
             </span>
-            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-              3D MOBILE
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-yellow-300 border border-yellow-500/30">
+              🇮🇳 Made in India
             </span>
           </div>
 
@@ -367,15 +367,15 @@ export function UI() {
                   href="https://itsrkmahapatra.qzz.io/"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-white/50 hover:text-yellow-400 underline truncate max-w-[170px]"
+                  className="text-white/60 hover:text-yellow-400 underline truncate max-w-[190px]"
                 >
-                  By Raj Kishor Mahapatra
+                  🇮🇳 Made in India by <span className="text-yellow-400 font-bold">Raj Kishor</span>
                 </a>
                 <button
                   onClick={() => setShowDonate(true)}
-                  className="px-2.5 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 rounded-full font-bold text-[10px] active:scale-95 flex items-center gap-1"
+                  className="px-2.5 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 rounded-full font-bold text-[10px] active:scale-95 flex items-center gap-1 shrink-0"
                 >
-                  <QrCode size={11} /> Support UPI
+                  <QrCode size={11} /> UPI Donate
                 </button>
               </div>
             </motion.div>
