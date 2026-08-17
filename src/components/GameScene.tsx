@@ -5,31 +5,17 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useGameStore, globalGameState } from '../store/gameStore';
+import { useGameStore, globalGameState, mobileInputs } from '../store/gameStore';
 import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED } from '../shared/types';
+import { getEmojiTexture, EMOJI_HEADS, EMOJI_LOOT } from '../shared/emojiTextures';
 import * as THREE from 'three';
-import { Sphere, Grid, Stars, useTexture } from '@react-three/drei';
-
-const BASE = import.meta.env.BASE_URL || '/';
-
-useTexture.preload(BASE + 'assets/medkit.png');
-useTexture.preload(BASE + 'assets/ammo.png');
-useTexture.preload(BASE + 'assets/armor.png');
-useTexture.preload(BASE + 'assets/weapon.png');
-useTexture.preload(BASE + 'assets/head_skull.png');
-useTexture.preload(BASE + 'assets/head_robot.png');
-useTexture.preload(BASE + 'assets/head_snake.png');
+import { Grid, Stars } from '@react-three/drei';
 
 const localCollectedLoot = new Set<string>();
 
 function Snake({ playerId, color, headType, isLocal }: { playerId: string, color: string, headType: string, isLocal: boolean }) {
-  const imagePaths = {
-    skull: BASE + 'assets/head_skull.png',
-    robot: BASE + 'assets/head_robot.png',
-    snake: BASE + 'assets/head_snake.png',
-  };
-  const imagePath = imagePaths[headType as keyof typeof imagePaths] || imagePaths.snake;
-  const texture = useTexture(imagePath);
+  const headConfig = EMOJI_HEADS[headType as keyof typeof EMOJI_HEADS] || EMOJI_HEADS.snake;
+  const texture = useMemo(() => getEmojiTexture(headConfig.emoji, headConfig.glow), [headConfig]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.Mesh>(null);
@@ -95,7 +81,7 @@ function Snake({ playerId, color, headType, isLocal }: { playerId: string, color
   return (
     <group>
       <mesh ref={headRef}>
-        <planeGeometry args={[2.5, 2.5]} />
+        <planeGeometry args={[2.6, 2.6]} />
         <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
       <instancedMesh ref={bodyRef} args={[null as any, null as any, 2000]} castShadow receiveShadow frustumCulled={false}>
@@ -121,8 +107,20 @@ function Snake({ playerId, color, headType, isLocal }: { playerId: string, color
   );
 }
 
-function ImageInstanced({ textureUrl, type, timeRef, dummy }: { textureUrl: string, type: string, timeRef: React.MutableRefObject<number>, dummy: THREE.Object3D }) {
-  const texture = useTexture(textureUrl);
+function EmojiLootInstanced({
+  type,
+  emoji,
+  glow,
+  timeRef,
+  dummy,
+}: {
+  type: string;
+  emoji: string;
+  glow: string;
+  timeRef: React.MutableRefObject<number>;
+  dummy: THREE.Object3D;
+}) {
+  const texture = useMemo(() => getEmojiTexture(emoji, glow), [emoji, glow]);
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
   useFrame(() => {
@@ -136,8 +134,8 @@ function ImageInstanced({ textureUrl, type, timeRef, dummy }: { textureUrl: stri
       if (loot.type !== type) continue;
 
       dummy.position.set(loot.x, loot.y, 0.5);
-      dummy.rotation.set(0, 0, timeRef.current * 2 + loot.x);
-      dummy.scale.setScalar(1.5);
+      dummy.rotation.set(0, 0, Math.sin(timeRef.current * 3 + loot.x) * 0.2);
+      dummy.scale.setScalar(1.6 + Math.sin(timeRef.current * 4 + loot.y) * 0.15);
       dummy.updateMatrix();
       
       meshRef.current.setMatrixAt(count, dummy.matrix);
@@ -150,20 +148,13 @@ function ImageInstanced({ textureUrl, type, timeRef, dummy }: { textureUrl: stri
 
   return (
     <instancedMesh ref={meshRef} args={[null as any, null as any, 300]}>
-      <planeGeometry args={[2.0, 2.0]} />
+      <planeGeometry args={[2.2, 2.2]} />
       <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} />
     </instancedMesh>
   );
 }
 
 function LootItems() {
-  const images = {
-    medkit: BASE + 'assets/medkit.png',
-    ammo: BASE + 'assets/ammo.png',
-    armor: BASE + 'assets/armor.png',
-    weapon: BASE + 'assets/weapon.png'
-  };
-
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const timeRef = useRef(0);
 
@@ -173,8 +164,15 @@ function LootItems() {
 
   return (
     <group>
-      {Object.entries(images).map(([type, url]) => (
-        <ImageInstanced key={type} textureUrl={url} type={type} timeRef={timeRef} dummy={dummy} />
+      {Object.entries(EMOJI_LOOT).map(([type, config]) => (
+        <EmojiLootInstanced
+          key={type}
+          type={type}
+          emoji={config.emoji}
+          glow={config.glow}
+          timeRef={timeRef}
+          dummy={dummy}
+        />
       ))}
     </group>
   );
@@ -259,12 +257,26 @@ export function GameScene() {
 
       if (!localPlayerRef.current.active) return;
 
-      // Local movement logic
-      if (inputs.current.left) localPlayerRef.current.currentAngle += TURN_SPEED * delta;
-      if (inputs.current.right) localPlayerRef.current.currentAngle -= TURN_SPEED * delta;
+      // Mobile Joystick 360° Steering or Keyboard Fallback
+      if (mobileInputs.active) {
+        let diff = Math.atan2(
+          Math.sin(mobileInputs.targetAngle - localPlayerRef.current.currentAngle),
+          Math.cos(mobileInputs.targetAngle - localPlayerRef.current.currentAngle)
+        );
+        const maxTurn = TURN_SPEED * 1.6 * delta;
+        if (Math.abs(diff) <= maxTurn) {
+          localPlayerRef.current.currentAngle = mobileInputs.targetAngle;
+        } else {
+          localPlayerRef.current.currentAngle += Math.sign(diff) * maxTurn;
+        }
+      } else {
+        if (inputs.current.left || mobileInputs.turnLeft) localPlayerRef.current.currentAngle += TURN_SPEED * delta;
+        if (inputs.current.right || mobileInputs.turnRight) localPlayerRef.current.currentAngle -= TURN_SPEED * delta;
+      }
       
-      localPlayerRef.current.isBoosting = inputs.current.boost && localPlayerRef.current.score > 10;
-      const speed = localPlayerRef.current.isBoosting ? BOOST_SPEED : BASE_SPEED;
+      const isBoosting = (inputs.current.boost || mobileInputs.isBoosting) && localPlayerRef.current.score > 10;
+      localPlayerRef.current.isBoosting = isBoosting;
+      const speed = isBoosting ? BOOST_SPEED : BASE_SPEED;
       
       const head = { ...localPlayerRef.current.segments[0] };
       head.x += Math.cos(localPlayerRef.current.currentAngle) * speed * delta;
@@ -404,7 +416,9 @@ export function GameScene() {
         localPlayerRef.current.lastSendTime = now;
       }
 
-      const targetZ = Math.min(45, Math.max(20, 20 + localPlayerRef.current.score * 0.2));
+      const aspect = size.width / Math.max(1, size.height);
+      const baseHeight = aspect < 0.8 ? 34 : aspect < 1.2 ? 26 : 22;
+      const targetZ = Math.min(55, Math.max(baseHeight, baseHeight + localPlayerRef.current.score * 0.2));
       
       // Smooth camera follow predicted head
       camera.position.x += (head.x - camera.position.x) * 10 * delta;

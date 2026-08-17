@@ -72,14 +72,17 @@ let snakeCounter = 1;
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
 
-  socket.on('join', (customName?: string) => {
+  socket.on('join', (payload?: string | { name?: string; headType?: string }) => {
+    let customName = typeof payload === 'string' ? payload : payload?.name;
+    let selectedHead = typeof payload === 'object' ? payload?.headType : undefined;
+
     const name = customName && customName.trim() ? customName.trim().substring(0, 16) : `Survivor-${snakeCounter++}`;
     const color = COLORS[Math.floor(Math.random() * COLORS.length)];
     const startX = (Math.random() - 0.5) * (WORLD_SIZE - 20);
     const startY = (Math.random() - 0.5) * (WORLD_SIZE - 20);
     const angle = Math.random() * Math.PI * 2;
     const headTypes = ['skull', 'robot', 'snake'];
-    const headType = headTypes[Math.floor(Math.random() * headTypes.length)];
+    const headType = selectedHead && headTypes.includes(selectedHead) ? selectedHead : headTypes[Math.floor(Math.random() * headTypes.length)];
 
     const segments = [];
     for (let i = 0; i < INITIAL_LENGTH; i++) {

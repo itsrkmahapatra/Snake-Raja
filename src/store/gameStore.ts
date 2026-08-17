@@ -5,25 +5,42 @@
 
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { GameState, Player } from '../shared/types';
+import { GameState } from '../shared/types';
 
 interface GameStore {
   socket: Socket | null;
   gameState: GameState | null;
   playerId: string | null;
+  selectedHeadType: 'skull' | 'robot' | 'snake';
+  setSelectedHeadType: (head: 'skull' | 'robot' | 'snake') => void;
   connect: () => void;
-  joinGame: (name?: string) => void;
+  joinGame: (name?: string, headType?: string) => void;
   sendPlayerState: (data: any) => void;
   sendCollectLoot: (lootId: string) => void;
 }
 
 export const globalGameState: { current: GameState | null } = { current: null };
+
+// Mobile touch input states shared with GameScene without re-render lag
+export const mobileInputs = {
+  active: false,
+  targetAngle: 0,
+  isBoosting: false,
+  turnLeft: false,
+  turnRight: false,
+};
+
 let lastUiUpdate = 0;
 
 export const useGameStore = create<GameStore>((set, get) => ({
   socket: null,
   gameState: null,
   playerId: null,
+  selectedHeadType: (localStorage.getItem('snake_raja_head') as 'skull' | 'robot' | 'snake') || 'snake',
+  setSelectedHeadType: (head) => {
+    localStorage.setItem('snake_raja_head', head);
+    set({ selectedHeadType: head });
+  },
   connect: () => {
     if (get().socket) return;
     
@@ -41,7 +58,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     socket.on('state', (state: GameState) => {
       globalGameState.current = state;
       const now = Date.now();
-      if (now - lastUiUpdate > 100) { // Throttle React updates to 10Hz
+      if (now - lastUiUpdate > 80) { // Throttle React updates to ~12Hz for battery efficiency
         set({ gameState: state });
         lastUiUpdate = now;
       }
@@ -49,10 +66,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ socket });
   },
-  joinGame: (name?: string) => {
-    const { socket } = get();
+  joinGame: (name?: string, headType?: string) => {
+    const { socket, selectedHeadType } = get();
     if (socket) {
-      socket.emit('join', name);
+      socket.emit('join', {
+        name,
+        headType: headType || selectedHeadType || 'snake',
+      });
     }
   },
   sendPlayerState: (data) => {

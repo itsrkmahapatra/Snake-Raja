@@ -18,11 +18,12 @@ export default function App() {
   }, [connect]);
 
   return (
-    <div className="w-screen h-screen bg-black overflow-hidden relative">
+    <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none touch-none">
       <Canvas
         shadows
+        dpr={[1, 1.5]}
         camera={{ position: [0, 0, 50], fov: 60 }}
-        gl={{ antialias: false }}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#050505']} />
         <Suspense fallback={null}>
@@ -30,9 +31,9 @@ export default function App() {
         </Suspense>
         <EffectComposer>
           <Bloom
-            luminanceThreshold={1.5}
+            luminanceThreshold={1.4}
             mipmapBlur
-            intensity={1.5}
+            intensity={1.2}
           />
         </EffectComposer>
       </Canvas>
