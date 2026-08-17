@@ -143,15 +143,7 @@ export function UI() {
       {isAlive && (
         <div className="w-full px-4 pb-4 safe-pb safe-pl safe-pr flex items-end justify-between pointer-events-auto z-40 mb-2">
           
-          {/* Left Thumb Virtual Joystick */}
-          <div className="flex flex-col items-center">
-            <VirtualJoystick size={120} />
-            <span className="text-[9px] font-mono font-bold text-white/40 mt-1 uppercase tracking-wider">
-              Drag to Steer
-            </span>
-          </div>
-
-          {/* Right Thumb Turbo Boost Button */}
+          {/* Left Thumb Turbo Boost Button */}
           <div className="flex flex-col items-center">
             <button
               onPointerDown={handleBoostStart}
@@ -171,6 +163,14 @@ export function UI() {
             </button>
             <span className="text-[9px] font-mono font-bold text-white/40 mt-1 uppercase tracking-wider">
               Hold Sprint
+            </span>
+          </div>
+
+          {/* Right Thumb Virtual Joystick */}
+          <div className="flex flex-col items-center">
+            <VirtualJoystick size={120} />
+            <span className="text-[9px] font-mono font-bold text-white/40 mt-1 uppercase tracking-wider">
+              Drag to Steer
             </span>
           </div>
         </div>
