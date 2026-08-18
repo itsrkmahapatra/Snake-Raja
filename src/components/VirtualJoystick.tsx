@@ -10,14 +10,14 @@ interface VirtualJoystickProps {
   size?: number;
 }
 
-export function VirtualJoystick({ size = 130 }: VirtualJoystickProps) {
+export function VirtualJoystick({ size = 115 }: VirtualJoystickProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [handlePos, setHandlePos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const activePointerId = useRef<number | null>(null);
 
   const radius = size / 2;
-  const maxDistance = radius - 15;
+  const maxDistance = radius - 12;
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (activePointerId.current !== null) return;
@@ -80,40 +80,42 @@ export function VirtualJoystick({ size = 130 }: VirtualJoystickProps) {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative rounded-full flex items-center justify-center select-none touch-none"
+      className="relative rounded-full flex items-center justify-center select-none touch-none transition-shadow duration-200"
       style={{
         width: size,
         height: size,
         background: isDragging
-          ? 'radial-gradient(circle, rgba(255, 170, 0, 0.25) 0%, rgba(20, 20, 30, 0.8) 100%)'
-          : 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(10, 10, 15, 0.7) 100%)',
-        border: isDragging ? '2px solid rgba(255, 170, 0, 0.6)' : '2px solid rgba(255, 255, 255, 0.15)',
-        boxShadow: isDragging ? '0 0 25px rgba(255, 170, 0, 0.4)' : '0 4px 15px rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+          ? 'radial-gradient(circle, rgba(255, 170, 0, 0.25) 0%, rgba(10, 14, 25, 0.85) 100%)'
+          : 'radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(8, 10, 18, 0.75) 100%)',
+        border: isDragging ? '2px solid rgba(255, 180, 0, 0.8)' : '1.5px solid rgba(255, 255, 255, 0.15)',
+        boxShadow: isDragging ? '0 0 30px rgba(255, 170, 0, 0.5), inset 0 0 15px rgba(255, 170, 0, 0.2)' : '0 6px 20px rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
       }}
     >
-      {/* Direction Guide Rings */}
-      <div className="absolute inset-2 rounded-full border border-white/5 pointer-events-none" />
-      <div className="absolute w-2 h-2 rounded-full bg-white/20 pointer-events-none" />
+      {/* High-tech Radar Grid Crosshairs */}
+      <div className="absolute inset-1.5 rounded-full border border-dashed border-white/10 pointer-events-none" />
+      <div className="absolute w-full h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+      <div className="absolute h-full w-[1px] bg-gradient-to-b from-transparent via-white/15 to-transparent pointer-events-none" />
+      <div className="absolute w-1.5 h-1.5 rounded-full bg-white/30 pointer-events-none" />
 
-      {/* Thumb handle */}
+      {/* Cyberpunk Steering Gimbal Handle */}
       <div
         className="absolute rounded-full transition-transform duration-75 pointer-events-none flex items-center justify-center"
         style={{
-          width: size * 0.42,
-          height: size * 0.42,
+          width: size * 0.44,
+          height: size * 0.44,
           transform: `translate(${handlePos.x}px, ${handlePos.y}px)`,
           background: isDragging
-            ? 'linear-gradient(135deg, #ffaa00 0%, #ff5500 100%)'
-            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(150, 150, 150, 0.2) 100%)',
+            ? 'linear-gradient(135deg, #ffd700 0%, #ff5500 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(120, 130, 150, 0.25) 100%)',
           boxShadow: isDragging
-            ? '0 0 20px rgba(255, 170, 0, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.5)'
-            : '0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.3)',
-          border: isDragging ? '2px solid rgba(255, 255, 255, 0.8)' : '1.5px solid rgba(255, 255, 255, 0.3)',
+            ? '0 0 25px rgba(255, 170, 0, 0.9), inset 0 2px 4px rgba(255, 255, 255, 0.6)'
+            : '0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.3)',
+          border: isDragging ? '2px solid rgba(255, 255, 255, 0.9)' : '1.5px solid rgba(255, 255, 255, 0.3)',
         }}
       >
-        <div className="w-3 h-3 rounded-full bg-white/40" />
+        <div className="w-3 h-3 rounded-full bg-white/60 shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
       </div>
     </div>
   );

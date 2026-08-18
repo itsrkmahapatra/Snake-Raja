@@ -7,7 +7,7 @@ import { useGameStore, globalGameState } from '../store/gameStore';
 import { WORLD_SIZE } from '../shared/types';
 import { useEffect, useRef } from 'react';
 
-export function MiniMap({ size = 80 }: { size?: number }) {
+export function MiniMap({ size = 54 }: { size?: number }) {
   const { playerId } = useGameStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -26,18 +26,24 @@ export function MiniMap({ size = 80 }: { size?: number }) {
 
       ctx.clearRect(0, 0, size, size);
 
-      // Radar background
-      ctx.fillStyle = 'rgba(5, 5, 12, 0.85)';
+      // Radar background with glass gradient
+      ctx.fillStyle = 'rgba(6, 8, 16, 0.85)';
       ctx.fillRect(0, 0, size, size);
 
       // Grid crosshairs
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(size / 2, 0);
       ctx.lineTo(size / 2, size);
       ctx.moveTo(0, size / 2);
       ctx.lineTo(size, size / 2);
+      ctx.stroke();
+
+      // Radar sweep ring
+      ctx.strokeStyle = 'rgba(255, 200, 0, 0.12)';
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.38, 0, Math.PI * 2);
       ctx.stroke();
 
       if (gs) {
@@ -53,21 +59,21 @@ export function MiniMap({ size = 80 }: { size?: number }) {
             // Golden pulsing boss dot
             ctx.fillStyle = '#ffd700';
             ctx.beginPath();
-            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.arc(px, py, 3.5, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.7)';
+            ctx.lineWidth = 1.2;
             ctx.stroke();
           } else if (p.isBountyTarget) {
             // Red bounty dot
             ctx.fillStyle = '#ff0033';
             ctx.beginPath();
-            ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
             ctx.fill();
           } else {
             ctx.fillStyle = p.color || '#ff0055';
             ctx.beginPath();
-            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.arc(px, py, 1.8, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -79,16 +85,16 @@ export function MiniMap({ size = 80 }: { size?: number }) {
           const ly = (halfWorld - local.segments[0].y) * scale;
 
           // Glow ring
-          ctx.strokeStyle = 'rgba(255, 200, 0, 0.5)';
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(255, 210, 0, 0.6)';
+          ctx.lineWidth = 1.8;
           ctx.beginPath();
-          ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+          ctx.arc(lx, ly, 3.8, 0, Math.PI * 2);
           ctx.stroke();
 
           // Center point
-          ctx.fillStyle = '#ffea00';
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+          ctx.arc(lx, ly, 2, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -102,11 +108,11 @@ export function MiniMap({ size = 80 }: { size?: number }) {
 
   return (
     <div
-      className="relative rounded-xl overflow-hidden border border-yellow-500/30 shadow-[0_0_12px_rgba(255,170,0,0.15)] backdrop-blur-md pointer-events-none"
+      className="relative rounded-2xl overflow-hidden cyber-glass border-amber-500/40 shadow-[0_0_15px_rgba(255,170,0,0.2)] pointer-events-none"
       style={{ width: size, height: size }}
     >
       <canvas ref={canvasRef} width={size} height={size} className="w-full h-full block" />
-      <div className="absolute top-1 left-1.5 text-[8px] font-mono font-bold text-yellow-400/70 tracking-widest pointer-events-none">
+      <div className="absolute top-0.5 left-1 text-[7px] font-mono font-bold text-yellow-400/80 tracking-widest pointer-events-none">
         RADAR
       </div>
     </div>

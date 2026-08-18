@@ -27,11 +27,11 @@ function SnakeNameTag({ player, isLocal, isLeader }: { player: Player; isLocal: 
       <div
         className={`flex flex-col items-center gap-0.5 px-2 py-0.5 rounded-xl backdrop-blur-md border shadow-2xl transition-transform ${
           isLeader
-            ? 'bg-amber-950/80 border-yellow-400 ring-1 ring-yellow-400/50 scale-105'
+            ? 'bg-amber-950/85 border-yellow-400 ring-1 ring-yellow-400/50 scale-105 shadow-[0_0_15px_rgba(255,200,0,0.4)]'
             : player.isTitanBoss
-            ? 'bg-purple-950/85 border-amber-400 ring-2 ring-amber-400 scale-110'
+            ? 'bg-purple-950/90 border-amber-400 ring-2 ring-amber-400 scale-110 shadow-[0_0_20px_rgba(255,215,0,0.5)]'
             : isLocal
-            ? 'bg-black/80 border-yellow-400/80 ring-1 ring-yellow-400/30'
+            ? 'bg-cyan-950/80 border-cyan-400/80 ring-1 ring-cyan-400/30'
             : 'bg-black/75 border-white/20'
         }`}
         style={{ minWidth: '76px' }}
@@ -42,7 +42,7 @@ function SnakeNameTag({ player, isLocal, isLeader }: { player: Player; isLocal: 
           {player.isBountyTarget && <span className="text-red-400 animate-pulse">🎯</span>}
           <span
             style={{ color: player.color || '#fff' }}
-            className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] max-w-[90px] truncate"
+            className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] max-w-[90px] truncate font-bold"
           >
             {isLocal ? `⭐ ${player.name}` : player.name}
           </span>
@@ -270,7 +270,6 @@ export function GameScene() {
     playerId,
     sendPlayerState,
     sendCollectLoot,
-    sendPlayerKill,
     updateChallengeProgress,
   } = useGameStore();
 
@@ -439,7 +438,7 @@ export function GameScene() {
           updateChallengeProgress('score', Math.floor(localPlayerRef.current.score));
 
           localCollectedLoot.add(lootId);
-          delete gs.loot[lootId]; // predict locally
+          delete gs.loot[lootId];
           sendCollectLoot(lootId);
         }
       }
