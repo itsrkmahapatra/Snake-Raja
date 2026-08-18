@@ -6,50 +6,112 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGameStore, globalGameState, mobileInputs } from '../store/gameStore';
-import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED } from '../shared/types';
+import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED, Player } from '../shared/types';
 import { getEmojiTexture, EMOJI_HEADS, EMOJI_LOOT } from '../shared/emojiTextures';
 import * as THREE from 'three';
-import { Grid, Stars } from '@react-three/drei';
+import { Grid, Stars, Html } from '@react-three/drei';
 
 const localCollectedLoot = new Set<string>();
 
-function Snake({ playerId, color, headType, isLocal }: { playerId: string, color: string, headType: string, isLocal: boolean }) {
+function SnakeNameTag({ player, isLocal, isLeader }: { player: Player; isLocal: boolean; isLeader: boolean }) {
+  const head = player.segments[0];
+  if (!head) return null;
+
+  return (
+    <Html
+      position={[head.x, head.y, 2.0]}
+      center
+      distanceFactor={32}
+      className="pointer-events-none select-none z-10"
+    >
+      <div
+        className={`flex flex-col items-center gap-0.5 px-2 py-0.5 rounded-xl backdrop-blur-md border shadow-2xl transition-transform ${
+          isLeader
+            ? 'bg-amber-950/80 border-yellow-400 ring-1 ring-yellow-400/50 scale-105'
+            : player.isTitanBoss
+            ? 'bg-purple-950/85 border-amber-400 ring-2 ring-amber-400 scale-110'
+            : isLocal
+            ? 'bg-black/80 border-yellow-400/80 ring-1 ring-yellow-400/30'
+            : 'bg-black/75 border-white/20'
+        }`}
+        style={{ minWidth: '76px' }}
+      >
+        <div className="flex items-center gap-1 text-[11px] font-black font-mono tracking-tight leading-none">
+          {isLeader && <span className="text-yellow-300 drop-shadow">👑</span>}
+          {player.isTitanBoss && <span className="text-amber-400 animate-bounce">🐉</span>}
+          {player.isBountyTarget && <span className="text-red-400 animate-pulse">🎯</span>}
+          <span
+            style={{ color: player.color || '#fff' }}
+            className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] max-w-[90px] truncate"
+          >
+            {isLocal ? `⭐ ${player.name}` : player.name}
+          </span>
+          <span className="text-[9px] font-bold text-yellow-300 bg-white/10 px-1 py-0.2 rounded">
+            {Math.floor(player.score)}
+          </span>
+        </div>
+
+        {/* Mini HP / Armor bar */}
+        <div className="w-full h-1 bg-black/90 rounded-full overflow-hidden flex">
+          <div
+            className="h-full bg-gradient-to-r from-red-500 via-yellow-400 to-emerald-400 transition-all duration-150"
+            style={{ width: `${Math.max(0, Math.min(100, player.health ?? 100))}%` }}
+          />
+        </div>
+      </div>
+    </Html>
+  );
+}
+
+function Snake({
+  playerId,
+  color,
+  headType,
+  isLocal,
+  isLeader,
+}: {
+  playerId: string;
+  color: string;
+  headType: string;
+  isLocal: boolean;
+  isLeader: boolean;
+}) {
   const headConfig = EMOJI_HEADS[headType as keyof typeof EMOJI_HEADS] || EMOJI_HEADS.snake;
   const texture = useMemo(() => getEmojiTexture(headConfig.emoji, headConfig.glow), [headConfig]);
 
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.Mesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const currentPositions = useRef<{x: number, y: number}[]>([]);
+  const currentPositions = useRef<{ x: number; y: number }[]>([]);
 
   useFrame((state, delta) => {
     if (!bodyRef.current || !headRef.current) return;
     const gs = globalGameState.current;
     if (!gs) return;
-    
+
     const player = gs.players[playerId];
     if (!player || player.segments.length === 0) {
       bodyRef.current.count = 0;
       headRef.current.visible = false;
       return;
     }
-    
+
     headRef.current.visible = true;
     const count = player.segments.length;
     bodyRef.current.count = Math.max(0, count - 1);
-    
+
     while (currentPositions.current.length < count) {
       const idx = currentPositions.current.length;
-      currentPositions.current.push({ 
-        x: player.segments[idx]?.x || 0, 
-        y: player.segments[idx]?.y || 0 
+      currentPositions.current.push({
+        x: player.segments[idx]?.x || 0,
+        y: player.segments[idx]?.y || 0,
       });
     }
 
     for (let i = 0; i < count; i++) {
       let targetX = player.segments[i].x;
       let targetY = player.segments[i].y;
-      
+
       const curr = currentPositions.current[i];
       if (isLocal) {
         curr.x = targetX;
@@ -65,7 +127,7 @@ function Snake({ playerId, color, headType, isLocal }: { playerId: string, color
           curr.y += (targetY - curr.y) * lerpFactor * delta;
         }
       }
-      
+
       if (i === 0) {
         headRef.current.position.set(curr.x, curr.y, 0.6);
         headRef.current.rotation.set(0, 0, player.currentAngle - Math.PI / 2);
@@ -78,13 +140,31 @@ function Snake({ playerId, color, headType, isLocal }: { playerId: string, color
     bodyRef.current.instanceMatrix.needsUpdate = true;
   });
 
+  const gs = globalGameState.current;
+  const player = gs?.players[playerId];
+
   return (
     <group>
+      {player && player.state === 'alive' && (
+        <SnakeNameTag player={player} isLocal={isLocal} isLeader={isLeader} />
+      )}
       <mesh ref={headRef}>
         <planeGeometry args={[2.6, 2.6]} />
-        <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <meshBasicMaterial
+          map={texture}
+          transparent
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
       </mesh>
-      <instancedMesh ref={bodyRef} args={[null as any, null as any, 2000]} castShadow receiveShadow frustumCulled={false}>
+      <instancedMesh
+        ref={bodyRef}
+        args={[null as any, null as any, 2000]}
+        castShadow
+        receiveShadow
+        frustumCulled={false}
+      >
         <sphereGeometry args={[0.6, 16, 16]} />
         <meshStandardMaterial
           color={color}
@@ -137,7 +217,7 @@ function EmojiLootInstanced({
       dummy.rotation.set(0, 0, Math.sin(timeRef.current * 3 + loot.x) * 0.2);
       dummy.scale.setScalar(1.6 + Math.sin(timeRef.current * 4 + loot.y) * 0.15);
       dummy.updateMatrix();
-      
+
       meshRef.current.setMatrixAt(count, dummy.matrix);
       count++;
     }
@@ -149,7 +229,13 @@ function EmojiLootInstanced({
   return (
     <instancedMesh ref={meshRef} args={[null as any, null as any, 300]}>
       <planeGeometry args={[2.2, 2.2]} />
-      <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        side={THREE.DoubleSide}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
     </instancedMesh>
   );
 }
@@ -179,15 +265,24 @@ function LootItems() {
 }
 
 export function GameScene() {
-  const { gameState, playerId, sendPlayerState, sendCollectLoot } = useGameStore();
+  const {
+    gameState,
+    playerId,
+    sendPlayerState,
+    sendCollectLoot,
+    sendPlayerKill,
+    updateChallengeProgress,
+  } = useGameStore();
+
   const { camera, size } = useThree();
   const inputs = useRef({ left: false, right: false, boost: false });
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const [lightTarget] = useState(() => new THREE.Object3D());
+  const lastDaredevilCheck = useRef(0);
 
   const localPlayerRef = useRef<{
     active: boolean;
-    segments: {x: number, y: number}[];
+    segments: { x: number; y: number }[];
     score: number;
     currentAngle: number;
     isBoosting: boolean;
@@ -211,15 +306,27 @@ export function GameScene() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') && !inputs.current.left) { inputs.current.left = true; }
-      if ((e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') && !inputs.current.right) { inputs.current.right = true; }
-      if ((e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') && !inputs.current.boost) { inputs.current.boost = true; }
+      if ((e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') && !inputs.current.left) {
+        inputs.current.left = true;
+      }
+      if ((e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') && !inputs.current.right) {
+        inputs.current.right = true;
+      }
+      if ((e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') && !inputs.current.boost) {
+        inputs.current.boost = true;
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if ((e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') && inputs.current.left) { inputs.current.left = false; }
-      if ((e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') && inputs.current.right) { inputs.current.right = false; }
-      if ((e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') && inputs.current.boost) { inputs.current.boost = false; }
+      if ((e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') && inputs.current.left) {
+        inputs.current.left = false;
+      }
+      if ((e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') && inputs.current.right) {
+        inputs.current.right = false;
+      }
+      if ((e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') && inputs.current.boost) {
+        inputs.current.boost = false;
+      }
     };
 
     const handleBlur = () => {
@@ -240,10 +347,9 @@ export function GameScene() {
   useFrame((state, delta) => {
     const gs = globalGameState.current;
     if (!gs || !playerId) return;
-    
+
     const serverPlayer = gs.players[playerId];
     if (serverPlayer && serverPlayer.state === 'alive') {
-      
       if (!localPlayerRef.current.active && serverPlayer.segments.length > 0) {
         localPlayerRef.current.active = true;
         localPlayerRef.current.segments = [...serverPlayer.segments];
@@ -273,11 +379,16 @@ export function GameScene() {
         if (inputs.current.left || mobileInputs.turnLeft) localPlayerRef.current.currentAngle += TURN_SPEED * delta;
         if (inputs.current.right || mobileInputs.turnRight) localPlayerRef.current.currentAngle -= TURN_SPEED * delta;
       }
-      
+
       const isBoosting = (inputs.current.boost || mobileInputs.isBoosting) && localPlayerRef.current.score > 10;
       localPlayerRef.current.isBoosting = isBoosting;
+
+      if (isBoosting) {
+        updateChallengeProgress('boost', delta);
+      }
+
       const speed = isBoosting ? BOOST_SPEED : BASE_SPEED;
-      
+
       const head = { ...localPlayerRef.current.segments[0] };
       head.x += Math.cos(localPlayerRef.current.currentAngle) * speed * delta;
       head.y += Math.sin(localPlayerRef.current.currentAngle) * speed * delta;
@@ -315,6 +426,7 @@ export function GameScene() {
             localPlayerRef.current.health = Math.min(100, localPlayerRef.current.health + 40);
           } else if (lootItem.type === 'armor') {
             localPlayerRef.current.armor = Math.min(100, localPlayerRef.current.armor + 40);
+            updateChallengeProgress('shields', 1);
           } else if (lootItem.type === 'weapon') {
             localPlayerRef.current.power += 5;
           } else if (lootItem.type === 'ammo') {
@@ -322,6 +434,10 @@ export function GameScene() {
           } else {
             localPlayerRef.current.score += lootItem.value;
           }
+
+          updateChallengeProgress('loot', 1);
+          updateChallengeProgress('score', Math.floor(localPlayerRef.current.score));
+
           localCollectedLoot.add(lootId);
           delete gs.loot[lootId]; // predict locally
           sendCollectLoot(lootId);
@@ -335,28 +451,45 @@ export function GameScene() {
         }
       }
 
-      // Check player collisions
-      let collidedOther = null;
+      // Check player collisions & proximity
+      let collidedOther: Player | null = null;
+      let closeEnemy = false;
+
       for (const otherId in gs.players) {
         if (otherId === playerId) continue;
         const other = gs.players[otherId];
         if (other.state !== 'alive') continue;
+
         for (const seg of other.segments) {
           const dx = head.x - seg.x;
           const dy = head.y - seg.y;
-          if (dx * dx + dy * dy < 2.25) {
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < 2.25) {
             collidedOther = other;
             break;
+          } else if (distSq < 16) {
+            closeEnemy = true;
           }
         }
         if (collidedOther) break;
       }
 
+      // Daredevil proximity challenge check
+      const now = Date.now();
+      if (closeEnemy && now - lastDaredevilCheck.current > 3000) {
+        lastDaredevilCheck.current = now;
+        updateChallengeProgress('daredevil', 1);
+      }
+
       if (collidedOther) {
-        const now = Date.now();
         if (now - localPlayerRef.current.lastHitTime > 500) {
-          const damage = collidedOther.power || 10;
-          
+          const damage = collidedOther.power || 15;
+
+          if (collidedOther.isTitanBoss) {
+            updateChallengeProgress('titan_boss', 1);
+          }
+
           if (localPlayerRef.current.armor > 0) {
             if (localPlayerRef.current.armor >= damage) {
               localPlayerRef.current.armor -= damage;
@@ -368,9 +501,9 @@ export function GameScene() {
           } else {
             localPlayerRef.current.health -= damage;
           }
-          
+
           localPlayerRef.current.lastHitTime = now;
-          
+
           head.x -= Math.cos(localPlayerRef.current.currentAngle) * 3;
           head.y -= Math.sin(localPlayerRef.current.currentAngle) * 3;
           localPlayerRef.current.segments[0] = head;
@@ -386,7 +519,8 @@ export function GameScene() {
             state: 'dead',
             health: 0,
             armor: 0,
-            power: localPlayerRef.current.power
+            power: localPlayerRef.current.power,
+            killedBy: collidedOther.id,
           });
           return;
         }
@@ -401,7 +535,6 @@ export function GameScene() {
       gs.players[playerId].power = localPlayerRef.current.power;
 
       // Send state to server at 20Hz
-      const now = Date.now();
       if (now - localPlayerRef.current.lastSendTime > 50) {
         sendPlayerState({
           segments: localPlayerRef.current.segments,
@@ -411,7 +544,7 @@ export function GameScene() {
           state: 'alive',
           health: localPlayerRef.current.health,
           armor: localPlayerRef.current.armor,
-          power: localPlayerRef.current.power
+          power: localPlayerRef.current.power,
         });
         localPlayerRef.current.lastSendTime = now;
       }
@@ -419,14 +552,14 @@ export function GameScene() {
       const aspect = size.width / Math.max(1, size.height);
       const baseHeight = aspect < 0.8 ? 34 : aspect < 1.2 ? 26 : 22;
       const targetZ = Math.min(55, Math.max(baseHeight, baseHeight + localPlayerRef.current.score * 0.2));
-      
+
       // Smooth camera follow predicted head
       camera.position.x += (head.x - camera.position.x) * 10 * delta;
       camera.position.y += (head.y - camera.position.y) * 10 * delta;
       camera.position.z += (targetZ - camera.position.z) * 4 * delta;
       camera.lookAt(camera.position.x, camera.position.y, 0);
 
-      // Make the directional light follow the camera to keep shadows crisp
+      // Make directional light follow camera
       if (lightRef.current) {
         lightRef.current.position.set(camera.position.x + 10, camera.position.y - 10, 30);
         lightTarget.position.set(camera.position.x, camera.position.y, 0);
@@ -438,10 +571,12 @@ export function GameScene() {
 
   if (!gameState) return null;
 
+  const topLeaderId = gameState.leaderboard && gameState.leaderboard[0] ? gameState.leaderboard[0].id : '';
+
   return (
     <>
       <ambientLight intensity={0.4} />
-      
+
       <directionalLight
         ref={lightRef}
         target={lightTarget}
@@ -491,6 +626,7 @@ export function GameScene() {
             color={player.color}
             headType={player.headType}
             isLocal={player.id === playerId}
+            isLeader={player.id === topLeaderId}
           />
         );
       })}

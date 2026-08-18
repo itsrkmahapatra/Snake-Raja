@@ -49,10 +49,27 @@ export function MiniMap({ size = 80 }: { size?: number }) {
           const px = (p.segments[0].x + halfWorld) * scale;
           const py = (halfWorld - p.segments[0].y) * scale;
 
-          ctx.fillStyle = p.color || '#ff0055';
-          ctx.beginPath();
-          ctx.arc(px, py, 2, 0, Math.PI * 2);
-          ctx.fill();
+          if (p.isTitanBoss) {
+            // Golden pulsing boss dot
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          } else if (p.isBountyTarget) {
+            // Red bounty dot
+            ctx.fillStyle = '#ff0033';
+            ctx.beginPath();
+            ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = p.color || '#ff0055';
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
 
         // Draw local player
@@ -62,10 +79,10 @@ export function MiniMap({ size = 80 }: { size?: number }) {
           const ly = (halfWorld - local.segments[0].y) * scale;
 
           // Glow ring
-          ctx.strokeStyle = 'rgba(255, 200, 0, 0.4)';
+          ctx.strokeStyle = 'rgba(255, 200, 0, 0.5)';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+          ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
           ctx.stroke();
 
           // Center point
