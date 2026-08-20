@@ -104,14 +104,19 @@ export type LeaderboardEntry = {
   headType?: string;
 };
 
-export const WORLD_SIZE = 150;
+export const WORLD_SIZE = 140;
 export const BASE_SPEED = 15;
 export const BOOST_SPEED = 30;
-export const TICK_RATE = 60; // 60 updates per second
-export const LOOT_SPAWN_RATE = 0.1; // Loot per tick
-export const MAX_LOOT = 300;
+export const SIMULATION_TICK_RATE = 30; // 30 physics ticks per sec
+export const NETWORK_TICK_RATE = 15; // 15 network broadcasts per sec (saves 75% bandwidth)
+export const MAX_LOOT = 70; // Optimized loot count to save bandwidth
 export const INITIAL_LENGTH = 10;
 export const SEGMENT_SPACING = 0.5;
 export const TURN_SPEED = Math.PI * 3; // Radians per second
 export const TARGET_WIN_SCORE = 250; // Reaching 250 score triggers Victory
-export const ROUND_DURATION_SECS = 180; // 3 minute round limit if no one hits target score first
+export const ROUND_DURATION_SECS = 180; // 3 minute round limit
+export const TARGET_BOT_COUNT = 2; // Strict 2-3 bots maximum to eliminate bandwidth limit issues
+
+export function roundCoord(val: number): number {
+  return Math.round(val * 10) / 10;
+}

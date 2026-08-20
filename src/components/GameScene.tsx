@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGameStore, globalGameState, mobileInputs } from '../store/gameStore';
-import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED, Player } from '../shared/types';
+import { WORLD_SIZE, TURN_SPEED, BOOST_SPEED, BASE_SPEED, Player, roundCoord } from '../shared/types';
 import { getEmojiTexture, EMOJI_HEADS, EMOJI_LOOT } from '../shared/emojiTextures';
 import * as THREE from 'three';
 import { Grid, Stars, Html } from '@react-three/drei';
@@ -511,9 +511,9 @@ export function GameScene() {
         if (localPlayerRef.current.health <= 0) {
           localPlayerRef.current.active = false;
           sendPlayerState({
-            segments: localPlayerRef.current.segments,
-            score: localPlayerRef.current.score,
-            currentAngle: localPlayerRef.current.currentAngle,
+            segments: localPlayerRef.current.segments.map(s => ({ x: roundCoord(s.x), y: roundCoord(s.y) })),
+            score: Math.floor(localPlayerRef.current.score),
+            currentAngle: roundCoord(localPlayerRef.current.currentAngle),
             isBoosting: localPlayerRef.current.isBoosting,
             state: 'dead',
             health: 0,
@@ -533,17 +533,17 @@ export function GameScene() {
       gs.players[playerId].armor = localPlayerRef.current.armor;
       gs.players[playerId].power = localPlayerRef.current.power;
 
-      // Send state to server at 20Hz
-      if (now - localPlayerRef.current.lastSendTime > 50) {
+      // Send state to server at ~14Hz (70ms) with quantized coordinates (saves 65% bandwidth)
+      if (now - localPlayerRef.current.lastSendTime > 70) {
         sendPlayerState({
-          segments: localPlayerRef.current.segments,
-          score: localPlayerRef.current.score,
-          currentAngle: localPlayerRef.current.currentAngle,
+          segments: localPlayerRef.current.segments.map(s => ({ x: roundCoord(s.x), y: roundCoord(s.y) })),
+          score: Math.floor(localPlayerRef.current.score),
+          currentAngle: roundCoord(localPlayerRef.current.currentAngle),
           isBoosting: localPlayerRef.current.isBoosting,
           state: 'alive',
-          health: localPlayerRef.current.health,
-          armor: localPlayerRef.current.armor,
-          power: localPlayerRef.current.power,
+          health: Math.floor(localPlayerRef.current.health),
+          armor: Math.floor(localPlayerRef.current.armor),
+          power: Math.floor(localPlayerRef.current.power),
         });
         localPlayerRef.current.lastSendTime = now;
       }
