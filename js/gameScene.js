@@ -316,8 +316,10 @@ export class GameScene {
       const snakeObj = this.getOrCreateSnakeMesh(p);
       const isLocal = id === this.playerId;
       const count = Math.min(p.segments.length, 250);
+      const thickness = Math.min(2.2, 0.95 + Math.max(0, p.score - 10) * 0.007);
 
       snakeObj.headMesh.visible = true;
+      snakeObj.headMesh.scale.set(thickness, thickness, 1);
       snakeObj.bodyInstanced.count = Math.max(0, count - 1);
 
       while (snakeObj.positions.length < count) {
@@ -351,6 +353,9 @@ export class GameScene {
           snakeObj.headMesh.position.set(curr.x, curr.y, 0.7);
           snakeObj.headMesh.rotation.set(0, 0, p.currentAngle - Math.PI / 2);
         } else {
+          const taper = i > count - 4 ? 0.75 + ((count - i) / 4) * 0.25 : 1.0;
+          const segScale = thickness * taper;
+          snakeObj.dummy.scale.set(segScale, segScale, segScale);
           snakeObj.dummy.position.set(curr.x, curr.y, 0.5);
           snakeObj.dummy.updateMatrix();
           snakeObj.bodyInstanced.setMatrixAt(i - 1, snakeObj.dummy.matrix);
@@ -417,12 +422,23 @@ export class GameScene {
           }
 
           const speed = isBoosting ? BOOST_SPEED : BASE_SPEED;
-          const targetLength = Math.max(5, Math.floor(this.localPlayer.score));
+          const targetLength = Math.max(8, Math.floor(this.localPlayer.score));
 
-          // Ensure segments length matches score
+          // Ensure segments length matches score and extends naturally behind tail
           while (this.localPlayer.segments.length < targetLength) {
-            const last = this.localPlayer.segments[this.localPlayer.segments.length - 1];
-            this.localPlayer.segments.push({ x: last.x, y: last.y });
+            const len = this.localPlayer.segments.length;
+            const last = this.localPlayer.segments[len - 1] || { x: 0, y: 0 };
+            const prev = len > 1 ? this.localPlayer.segments[len - 2] : null;
+            let nx = last.x;
+            let ny = last.y;
+            if (prev) {
+              const dx = last.x - prev.x;
+              const dy = last.y - prev.y;
+              const d = Math.hypot(dx, dy) || 1;
+              nx = last.x + (dx / d) * 0.55;
+              ny = last.y + (dy / d) * 0.55;
+            }
+            this.localPlayer.segments.push({ x: nx, y: ny });
           }
           while (this.localPlayer.segments.length > targetLength) {
             this.localPlayer.segments.pop();
@@ -584,10 +600,10 @@ export class GameScene {
             this.localPlayer.lastSendTime = now;
           }
 
-          // Camera Smooth Following
+          // Camera Smooth Following (Balanced view so massive snakes look huge)
           const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-          const baseHeight = aspect < 0.8 ? 32 : aspect < 1.2 ? 26 : 22;
-          const targetZ = Math.min(48, Math.max(baseHeight, baseHeight + this.localPlayer.score * 0.12));
+          const baseHeight = aspect < 0.8 ? 28 : aspect < 1.2 ? 23 : 19;
+          const targetZ = Math.min(38, Math.max(baseHeight, baseHeight + Math.max(0, this.localPlayer.score - 10) * 0.04));
 
           this.camera.position.x += (head.x - this.camera.position.x) * 12 * delta;
           this.camera.position.y += (head.y - this.camera.position.y) * 12 * delta;
