@@ -45,7 +45,7 @@ const TURN_SPEED = Math.PI * 3;
 const TARGET_WIN_SCORE = 250;
 const ROUND_DURATION_SECS = 180;
 
-const MAX_PLAYERS = 10;
+const MAX_PLAYERS_PER_ROOM = 10;
 const MIN_BOTS = 3;
 const MAX_BOTS = 4;
 
@@ -54,14 +54,8 @@ function roundCoord(val) {
 }
 
 const COLORS = [
-  '#00ffff', // cyan star
-  '#ff00ff', // magenta nebula
-  '#ffaa00', // solar flare
-  '#ffffff', // white dwarf
-  '#7b2cbf', // deep cosmos
-  '#39ff14', // toxic plasma
-  '#ff0055', // crimson blaze
-  '#00ffaa', // emerald glow
+  '#00ffff', '#ff00ff', '#ffaa00', '#ffffff',
+  '#7b2cbf', '#39ff14', '#ff0055', '#00ffaa',
 ];
 
 const BOT_NAMES = [
@@ -69,35 +63,55 @@ const BOT_NAMES = [
   'CyberVenom', 'RajaStriker', 'TitanSerpent', 'CosmoDrake', 'BlitzAnaconda'
 ];
 
-const state = {
-  players: {},
-  loot: {},
-  leaderboard: [],
-  match: {
-    status: 'playing',
-    targetScore: TARGET_WIN_SCORE,
-    winner: null,
-    roundNumber: 1,
-    roundTimeRemaining: ROUND_DURATION_SECS,
-    nextRoundCountdown: 0,
-  },
-  currentEvent: null,
-  killFeed: [],
-};
+// Room Manager
+const rooms = new Map(); // roomId -> RoomState
 
-let lootCounter = 1;
+function createRoomState(roomId) {
+  const room = {
+    id: roomId,
+    players: {},
+    loot: {},
+    leaderboard: [],
+    match: {
+      status: 'playing',
+      targetScore: TARGET_WIN_SCORE,
+      winner: null,
+      roundNumber: 1,
+      roundTimeRemaining: ROUND_DURATION_SECS,
+      nextRoundCountdown: 0,
+    },
+    currentEvent: null,
+    killFeed: [],
+    lootCounter: 1,
+    botCounter: 1,
+    killCounter: 1,
+    targetBotCount: Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS,
+  };
 
-function spawnLoot(x, y, value = 1, color, force = false, specificType) {
-  if (!force && Object.keys(state.loot).length >= MAX_LOOT) return;
-  const id = `l_${lootCounter++}`;
-  if (lootCounter > 99999) lootCounter = 1;
+  // Seed loot
+  for (let i = 0; i < 50; i++) {
+    spawnRoomLoot(room);
+  }
+
+  // Seed bots
+  for (let i = 0; i < room.targetBotCount; i++) {
+    maintainRoomBots(room);
+  }
+
+  return room;
+}
+
+function spawnRoomLoot(room, x, y, value = 1, color, force = false, specificType) {
+  if (!force && Object.keys(room.loot).length >= MAX_LOOT) return;
+  const id = `l_${room.lootCounter++}`;
+  if (room.lootCounter > 99999) room.lootCounter = 1;
 
   const types = ['medkit', 'ammo', 'armor', 'weapon'];
   const type = specificType || types[Math.floor(Math.random() * types.length)];
   const rawX = x !== undefined ? x : (Math.random() - 0.5) * (WORLD_SIZE - 10);
   const rawY = y !== undefined ? y : (Math.random() - 0.5) * (WORLD_SIZE - 10);
 
-  state.loot[id] = {
+  room.loot[id] = {
     id,
     x: roundCoord(rawX),
     y: roundCoord(rawY),
@@ -107,16 +121,8 @@ function spawnLoot(x, y, value = 1, color, force = false, specificType) {
   };
 }
 
-// Initial compact loot pool (60 items)
-for (let i = 0; i < 60; i++) {
-  spawnLoot();
-}
-
-let playerCounter = 1;
-let botCounter = 1;
-
-function createBot(name, isTitan = false) {
-  const botId = `b_${botCounter++}`;
+function createRoomBot(room, name, isTitan = false) {
+  const botId = `b_${room.botCounter++}`;
   const color = isTitan ? '#ffd700' : COLORS[Math.floor(Math.random() * COLORS.length)];
   const headTypes = ['skull', 'robot', 'snake'];
   const headType = isTitan ? 'skull' : headTypes[Math.floor(Math.random() * headTypes.length)];
@@ -153,35 +159,26 @@ function createBot(name, isTitan = false) {
   };
 }
 
-// Random 3 to 4 bots
-let targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
-
-function maintainBots() {
-  const activeBots = Object.values(state.players).filter((p) => p.isBot && p.state === 'alive');
-
-  if (activeBots.length < targetBotCount && state.match.status === 'playing') {
-    const existingNames = new Set(Object.values(state.players).map((p) => p.name));
+function maintainRoomBots(room) {
+  const activeBots = Object.values(room.players).filter((p) => p.isBot && p.state === 'alive');
+  if (activeBots.length < room.targetBotCount && room.match.status === 'playing') {
+    const existingNames = new Set(Object.values(room.players).map((p) => p.name));
     const availableNames = BOT_NAMES.filter((n) => !existingNames.has(n));
     const name = availableNames.length > 0
       ? availableNames[Math.floor(Math.random() * availableNames.length)]
       : `Gladiator_${Math.floor(Math.random() * 99)}`;
-    const bot = createBot(name);
-    state.players[bot.id] = bot;
+    const bot = createRoomBot(room, name);
+    room.players[bot.id] = bot;
   }
 }
 
-for (let i = 0; i < targetBotCount; i++) {
-  maintainBots();
-}
-
-let killCounter = 1;
-function recordKill(killerId, victimId) {
-  const killer = state.players[killerId];
-  const victim = state.players[victimId];
+function recordRoomKill(room, killerId, victimId) {
+  const killer = room.players[killerId];
+  const victim = room.players[victimId];
   if (!victim) return;
 
   const killEvent = {
-    id: `k_${killCounter++}`,
+    id: `k_${room.killCounter++}`,
     killerId: killer ? killer.id : 'arena',
     killerName: killer ? killer.name : 'Arena Hazard',
     killerColor: killer ? killer.color : '#ff0055',
@@ -200,18 +197,18 @@ function recordKill(killerId, victimId) {
     }
   }
 
-  state.killFeed.unshift(killEvent);
-  if (state.killFeed.length > 3) {
-    state.killFeed.pop();
+  room.killFeed.unshift(killEvent);
+  if (room.killFeed.length > 3) {
+    room.killFeed.pop();
   }
 
-  io.emit('kill_event', killEvent);
+  io.to(room.id).emit('kill_event', killEvent);
 }
 
-function triggerWin(winner) {
-  if (state.match.status === 'ended') return;
-  state.match.status = 'ended';
-  state.match.winner = {
+function triggerRoomWin(room, winner) {
+  if (room.match.status === 'ended') return;
+  room.match.status = 'ended';
+  room.match.winner = {
     id: winner.id,
     name: winner.name,
     color: winner.color,
@@ -219,32 +216,32 @@ function triggerWin(winner) {
     kills: winner.kills || 0,
     headType: winner.headType || 'snake',
   };
-  state.match.nextRoundCountdown = 5;
+  room.match.nextRoundCountdown = 5;
 
-  io.emit('match_won', state.match.winner);
+  io.to(room.id).emit('match_won', room.match.winner);
 
   if (winner.segments.length > 0) {
     const head = winner.segments[0];
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2;
       const dist = Math.random() * 10;
-      spawnLoot(head.x + Math.cos(angle) * dist, head.y + Math.sin(angle) * dist, 5, winner.color, true);
+      spawnRoomLoot(room, head.x + Math.cos(angle) * dist, head.y + Math.sin(angle) * dist, 5, winner.color, true);
     }
   }
 }
 
-function restartRound() {
-  state.match.status = 'playing';
-  state.match.roundNumber += 1;
-  state.match.winner = null;
-  state.match.roundTimeRemaining = ROUND_DURATION_SECS;
-  state.match.nextRoundCountdown = 0;
-  state.currentEvent = null;
+function restartRoomRound(room) {
+  room.match.status = 'playing';
+  room.match.roundNumber += 1;
+  room.match.winner = null;
+  room.match.roundTimeRemaining = ROUND_DURATION_SECS;
+  room.match.nextRoundCountdown = 0;
+  room.currentEvent = null;
 
-  targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
+  room.targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
 
-  for (const id in state.players) {
-    const p = state.players[id];
+  for (const id in room.players) {
+    const p = room.players[id];
     const startX = roundCoord((Math.random() - 0.5) * (WORLD_SIZE - 30));
     const startY = roundCoord((Math.random() - 0.5) * (WORLD_SIZE - 30));
     const angle = roundCoord(Math.random() * Math.PI * 2);
@@ -267,106 +264,21 @@ function restartRound() {
     p.isBountyTarget = false;
   }
 
-  state.loot = {};
-  for (let i = 0; i < 60; i++) {
-    spawnLoot();
+  room.loot = {};
+  for (let i = 0; i < 50; i++) {
+    spawnRoomLoot(room);
   }
 
-  maintainBots();
-  io.emit('round_restart', { roundNumber: state.match.roundNumber });
+  maintainRoomBots(room);
+  io.to(room.id).emit('round_restart', { roundNumber: room.match.roundNumber });
 }
 
-// Dynamic Arena Event System
-let eventTimer = 0;
-let eventCounter = 1;
-function handleArenaEvents() {
-  if (state.match.status !== 'playing') return;
+function updateRoomBots(room, delta) {
+  if (room.match.status !== 'playing') return;
+  const lootArray = Object.values(room.loot);
 
-  if (state.currentEvent) {
-    state.currentEvent.timeRemaining -= 1;
-    if (state.currentEvent.timeRemaining <= 0) {
-      if (state.currentEvent.type === 'bounty' && state.currentEvent.bountyPlayerId) {
-        if (state.players[state.currentEvent.bountyPlayerId]) {
-          state.players[state.currentEvent.bountyPlayerId].isBountyTarget = false;
-        }
-      }
-      state.currentEvent = null;
-    } else if (state.currentEvent.type === 'frenzy') {
-      spawnLoot();
-    }
-  } else {
-    eventTimer++;
-    if (eventTimer >= 50) {
-      eventTimer = 0;
-      const eventTypes = ['frenzy', 'bounty', 'titan', 'storm'];
-      const chosen = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-      const evId = `e_${eventCounter++}`;
-
-      if (chosen === 'frenzy') {
-        state.currentEvent = {
-          id: evId,
-          type: 'frenzy',
-          title: '⚡ ENERGY FRENZY',
-          description: 'Loot Drop Boost for 20s!',
-          icon: '⚡',
-          duration: 20,
-          timeRemaining: 20,
-        };
-      } else if (chosen === 'bounty') {
-        const alivePlayers = Object.values(state.players).filter((p) => p.state === 'alive');
-        if (alivePlayers.length > 0) {
-          const sorted = alivePlayers.sort((a, b) => b.score - a.score);
-          const target = sorted[0];
-          target.isBountyTarget = true;
-          state.currentEvent = {
-            id: evId,
-            type: 'bounty',
-            title: '👑 BOUNTY TARGET ACTIVE',
-            description: `Defeat ${target.name} for bonus score!`,
-            icon: '🎯',
-            duration: 25,
-            timeRemaining: 25,
-            bountyPlayerId: target.id,
-            bountyPlayerName: target.name,
-          };
-        }
-      } else if (chosen === 'titan') {
-        const currentBots = Object.values(state.players).filter((p) => p.isBot && p.state === 'alive');
-        if (currentBots.length < MAX_BOTS) {
-          const titan = createBot('TITAN', true);
-          state.players[titan.id] = titan;
-        }
-        state.currentEvent = {
-          id: evId,
-          type: 'titan',
-          title: '💎 TITAN INVASION',
-          description: 'A Golden Titan has entered the arena!',
-          icon: '🐉',
-          duration: 25,
-          timeRemaining: 25,
-        };
-      } else if (chosen === 'storm') {
-        state.currentEvent = {
-          id: evId,
-          type: 'storm',
-          title: '🚨 DANGER STORM',
-          description: 'Outer boundaries are hazardous!',
-          icon: '☢️',
-          duration: 20,
-          timeRemaining: 20,
-        };
-      }
-    }
-  }
-}
-
-// Bot AI Routine
-function updateBots(delta) {
-  if (state.match.status !== 'playing') return;
-  const lootArray = Object.values(state.loot);
-
-  for (const id in state.players) {
-    const bot = state.players[id];
+  for (const id in room.players) {
+    const bot = room.players[id];
     if (!bot.isBot || bot.state !== 'alive' || bot.segments.length === 0) continue;
 
     const head = bot.segments[0];
@@ -375,7 +287,7 @@ function updateBots(delta) {
     let foundTarget = false;
     let minDist = 99999;
 
-    for (let i = 0; i < Math.min(lootArray.length, 20); i++) {
+    for (let i = 0; i < Math.min(lootArray.length, 15); i++) {
       const loot = lootArray[i];
       const distSq = (head.x - loot.x) ** 2 + (head.y - loot.y) ** 2;
       if (distSq < minDist) {
@@ -419,8 +331,8 @@ function updateBots(delta) {
       bot.segments.pop();
     }
 
-    for (const lootId in state.loot) {
-      const loot = state.loot[lootId];
+    for (const lootId in room.loot) {
+      const loot = room.loot[lootId];
       const dx = newHead.x - loot.x;
       const dy = newHead.y - loot.y;
       if (dx * dx + dy * dy < 4) {
@@ -433,30 +345,41 @@ function updateBots(delta) {
         } else {
           bot.score += 2;
         }
-        delete state.loot[lootId];
+        delete room.loot[lootId];
         break;
       }
     }
   }
 }
 
-// Track active real player count to pause loop when idle
-let activeHumanPlayers = 0;
+// Socket routing
+const socketRoomMap = new Map(); // socket.id -> roomId
+let totalConnectedPlayers = 0;
 
 io.on('connection', (socket) => {
-  activeHumanPlayers++;
+  totalConnectedPlayers++;
 
   socket.on('join', (payload) => {
-    const currentRealPlayers = Object.values(state.players).filter((p) => !p.isBot && p.state === 'alive').length;
-    if (currentRealPlayers >= MAX_PLAYERS) {
-      socket.emit('room_full', { maxPlayers: MAX_PLAYERS });
+    let customName = typeof payload === 'string' ? payload : payload?.name;
+    let selectedHead = typeof payload === 'object' ? payload?.headType : undefined;
+    let requestedRoom = (typeof payload === 'object' && payload?.roomCode ? payload.roomCode.trim().toUpperCase() : '') || 'GLOBAL';
+
+    let room = rooms.get(requestedRoom);
+    if (!room) {
+      room = createRoomState(requestedRoom);
+      rooms.set(requestedRoom, room);
+    }
+
+    const currentRealPlayers = Object.values(room.players).filter((p) => !p.isBot && p.state === 'alive').length;
+    if (currentRealPlayers >= MAX_PLAYERS_PER_ROOM) {
+      socket.emit('room_full', { maxPlayers: MAX_PLAYERS_PER_ROOM });
       return;
     }
 
-    let customName = typeof payload === 'string' ? payload : payload?.name;
-    let selectedHead = typeof payload === 'object' ? payload?.headType : undefined;
+    socketRoomMap.set(socket.id, requestedRoom);
+    socket.join(requestedRoom);
 
-    const name = customName && customName.trim() ? customName.trim().substring(0, 16) : `Survivor-${playerCounter++}`;
+    const name = customName && customName.trim() ? customName.trim().substring(0, 16) : `Survivor_${Math.floor(Math.random() * 899 + 100)}`;
     const color = COLORS[Math.floor(Math.random() * COLORS.length)];
     const startX = roundCoord((Math.random() - 0.5) * (WORLD_SIZE - 25));
     const startY = roundCoord((Math.random() - 0.5) * (WORLD_SIZE - 25));
@@ -472,7 +395,7 @@ io.on('connection', (socket) => {
       });
     }
 
-    state.players[socket.id] = {
+    room.players[socket.id] = {
       id: socket.id,
       name,
       color,
@@ -490,11 +413,16 @@ io.on('connection', (socket) => {
       isBot: false,
     };
 
-    socket.emit('init', socket.id);
+    socket.emit('init', { id: socket.id, roomCode: requestedRoom });
   });
 
   socket.on('update_state', (data) => {
-    const player = state.players[socket.id];
+    const roomId = socketRoomMap.get(socket.id);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players[socket.id];
     if (player && player.state === 'alive') {
       player.segments = data.segments;
       player.score = data.score;
@@ -504,141 +432,150 @@ io.on('connection', (socket) => {
       if (data.armor !== undefined) player.armor = data.armor;
       if (data.power !== undefined) player.power = data.power;
 
-      if (player.score >= TARGET_WIN_SCORE && state.match.status === 'playing') {
-        triggerWin(player);
+      if (player.score >= TARGET_WIN_SCORE && room.match.status === 'playing') {
+        triggerRoomWin(room, player);
       }
 
       if (data.state === 'dead') {
         player.state = 'dead';
         if (data.killedBy) {
-          recordKill(data.killedBy, socket.id);
+          recordRoomKill(room, data.killedBy, socket.id);
         }
         player.segments.forEach((seg, i) => {
-          if (i % 3 === 0) spawnLoot(seg.x, seg.y, 2, player.color, true);
+          if (i % 3 === 0) spawnRoomLoot(room, seg.x, seg.y, 2, player.color, true);
         });
       }
     }
   });
 
   socket.on('player_kill', (data) => {
-    if (data && data.victimId) {
-      recordKill(socket.id, data.victimId);
+    const roomId = socketRoomMap.get(socket.id);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+    if (room && data && data.victimId) {
+      recordRoomKill(room, socket.id, data.victimId);
     }
   });
 
   socket.on('collect_loot', (lootId) => {
-    if (state.loot[lootId]) {
-      delete state.loot[lootId];
+    const roomId = socketRoomMap.get(socket.id);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+    if (room && room.loot[lootId]) {
+      delete room.loot[lootId];
     }
   });
 
   socket.on('disconnect', () => {
-    activeHumanPlayers = Math.max(0, activeHumanPlayers - 1);
-    const player = state.players[socket.id];
-    if (player && player.state === 'alive') {
-      player.segments.forEach((seg, i) => {
-        if (i % 3 === 0) spawnLoot(seg.x, seg.y, 1, player.color, true);
-      });
+    totalConnectedPlayers = Math.max(0, totalConnectedPlayers - 1);
+    const roomId = socketRoomMap.get(socket.id);
+    if (roomId) {
+      const room = rooms.get(roomId);
+      if (room) {
+        const player = room.players[socket.id];
+        if (player && player.state === 'alive') {
+          player.segments.forEach((seg, i) => {
+            if (i % 3 === 0) spawnRoomLoot(room, seg.x, seg.y, 1, player.color, true);
+          });
+        }
+        delete room.players[socket.id];
+
+        // Clean room if empty
+        const remainingReal = Object.values(room.players).filter((p) => !p.isBot).length;
+        if (remainingReal === 0 && roomId !== 'GLOBAL') {
+          rooms.delete(roomId);
+        }
+      }
+      socketRoomMap.delete(socket.id);
     }
-    delete state.players[socket.id];
   });
 });
 
-let simTickCount = 0;
-let secondCounter = 0;
+// Simulation Loop (30Hz)
 const SIM_DELTA = 1 / SIMULATION_TICK_RATE;
+let secondCounter = 0;
 
-// 1. Simulation Loop (Runs only when human players are connected)
 setInterval(() => {
-  if (activeHumanPlayers === 0) return; // Sleep / Idle when 0 players
+  if (totalConnectedPlayers === 0) return; // Sleep when idle
 
-  simTickCount++;
   secondCounter += SIM_DELTA;
 
-  updateBots(SIM_DELTA);
+  for (const [roomId, room] of rooms.entries()) {
+    const realPlayers = Object.values(room.players).filter((p) => !p.isBot).length;
+    if (realPlayers === 0) continue;
 
-  if (simTickCount % 60 === 0) {
-    maintainBots();
+    updateRoomBots(room, SIM_DELTA);
+
+    if (secondCounter >= 1.0) {
+      if (room.match.status === 'playing') {
+        room.match.roundTimeRemaining = Math.max(0, room.match.roundTimeRemaining - 1);
+        if (room.match.roundTimeRemaining <= 0) {
+          const alivePlayers = Object.values(room.players).filter((p) => p.state === 'alive');
+          if (alivePlayers.length > 0) {
+            const top = alivePlayers.sort((a, b) => b.score - a.score)[0];
+            triggerRoomWin(room, top);
+          } else {
+            restartRoomRound(room);
+          }
+        }
+      } else if (room.match.status === 'ended') {
+        room.match.nextRoundCountdown = Math.max(0, room.match.nextRoundCountdown - 1);
+        if (room.match.nextRoundCountdown <= 0) {
+          restartRoomRound(room);
+        }
+      }
+    }
+
+    // Boost trail loot
+    for (const id in room.players) {
+      const p = room.players[id];
+      if (p.state === 'alive' && p.isBoosting && Math.random() < 0.08 && p.segments.length > 0) {
+        const tail = p.segments[p.segments.length - 1];
+        spawnRoomLoot(room, tail.x, tail.y, 1, p.color, true);
+      }
+    }
   }
 
   if (secondCounter >= 1.0) {
     secondCounter = 0;
-    handleArenaEvents();
-
-    if (state.match.status === 'playing') {
-      state.match.roundTimeRemaining = Math.max(0, state.match.roundTimeRemaining - 1);
-      if (state.match.roundTimeRemaining <= 0) {
-        const alivePlayers = Object.values(state.players).filter((p) => p.state === 'alive');
-        if (alivePlayers.length > 0) {
-          const topLeader = alivePlayers.sort((a, b) => b.score - a.score)[0];
-          triggerWin(topLeader);
-        } else {
-          restartRound();
-        }
-      }
-    } else if (state.match.status === 'ended') {
-      state.match.nextRoundCountdown = Math.max(0, state.match.nextRoundCountdown - 1);
-      if (state.match.nextRoundCountdown <= 0) {
-        restartRound();
-      }
-    }
-  }
-
-  for (const id in state.players) {
-    const player = state.players[id];
-    if (player.state === 'alive') {
-      if (player.isBoosting && Math.random() < 0.08 && player.segments.length > 0) {
-        const tail = player.segments[player.segments.length - 1];
-        spawnLoot(tail.x, tail.y, 1, player.color, true);
-      }
-      if (simTickCount >= SIMULATION_TICK_RATE * 5) {
-        player.health = Math.min(100, player.health + 4);
-        player.armor = Math.min(100, player.armor + 4);
-      }
-    }
-  }
-  if (simTickCount >= SIMULATION_TICK_RATE * 5) {
-    simTickCount = 0;
-  }
-
-  if (Math.random() < 0.1) {
-    spawnLoot();
   }
 }, 1000 / SIMULATION_TICK_RATE);
 
-// 2. Network Broadcast Loop (Runs only when human players are connected)
+// Broadcast Loop (15Hz)
 setInterval(() => {
-  if (activeHumanPlayers === 0) return; // Sleep / Idle when 0 players
+  if (totalConnectedPlayers === 0) return;
 
-  state.leaderboard = Object.values(state.players)
-    .filter((p) => p.state === 'alive')
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      score: Math.floor(p.score),
-      color: p.color,
-      kills: p.kills || 0,
-      headType: p.headType,
-    }));
+  for (const [roomId, room] of rooms.entries()) {
+    const realPlayers = Object.values(room.players).filter((p) => !p.isBot).length;
+    if (realPlayers === 0) continue;
 
-  if (state.match.status === 'playing' && state.leaderboard.length > 0) {
-    const top = state.leaderboard[0];
-    if (top.score >= TARGET_WIN_SCORE) {
-      const fullPlayer = state.players[top.id];
-      if (fullPlayer) triggerWin(fullPlayer);
-    }
+    room.leaderboard = Object.values(room.players)
+      .filter((p) => p.state === 'alive')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        score: Math.floor(p.score),
+        color: p.color,
+        kills: p.kills || 0,
+        headType: p.headType,
+      }));
+
+    io.to(roomId).emit('state', room);
   }
-
-  io.emit('state', state);
 }, 1000 / NETWORK_TICK_RATE);
 
 // Static file hosting
 app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', activePlayers: activeHumanPlayers });
+  res.json({
+    status: 'ok',
+    game: 'snake-raja',
+    activePlayers: totalConnectedPlayers,
+    activeRooms: rooms.size,
+  });
 });
 
 app.get('/ping', (req, res) => {
@@ -647,10 +584,8 @@ app.get('/ping', (req, res) => {
 
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log('====================================================');
-  console.log(`🐍 SNAKE RAJA MULTIPLAYER ARENA SERVER`);
-  console.log('====================================================');
+  console.log(`🐍 SNAKE RAJA MULTIPLAYER ARENA RUNNING`);
   console.log(`💻 Localhost:       http://localhost:${PORT}`);
-
   try {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
@@ -663,8 +598,5 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   } catch {
     // ignore
   }
-
-  console.log('----------------------------------------------------');
-  console.log(`👉 To play Local LAN: Connect devices to this Wi-Fi/Hotspot`);
   console.log('====================================================');
 });

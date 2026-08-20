@@ -86,13 +86,13 @@ class GameApp {
     const badge = document.getElementById('serverStatusBadge');
     if (!badge) return;
     if (status === 'connected') {
-      badge.innerHTML = `🟢 <span style="color: #4ade80;">${customText || 'Online Live'}</span>`;
+      badge.innerHTML = `🟢 <span style="color: #4ade80;">${customText || 'Public Arena'}</span>`;
       badge.style.borderColor = 'rgba(74, 222, 128, 0.4)';
-    } else if (status === 'lan') {
-      badge.innerHTML = `📡 <span style="color: #c084fc;">${customText || 'Local LAN'}</span>`;
+    } else if (status === 'friends') {
+      badge.innerHTML = `👥 <span style="color: #c084fc;">${customText || 'Friends Room'}</span>`;
       badge.style.borderColor = 'rgba(192, 132, 252, 0.4)';
     } else if (status === 'connecting') {
-      badge.innerHTML = '🟡 <span style="color: #facc15;">Connecting...</span>';
+      badge.innerHTML = '🟡 <span style="color: #facc15;">Connecting Arena...</span>';
       badge.style.borderColor = 'rgba(250, 204, 21, 0.4)';
     } else if (status === 'offline') {
       badge.innerHTML = '⚡ <span style="color: #ffd700;">Offline Solo</span>';
@@ -104,26 +104,31 @@ class GameApp {
   }
 
   connectSocket(targetUrl, statusMode, onConnected) {
+    if (this.socket && this.socket.connected) {
+      onConnected?.();
+      return;
+    }
+
     this.disconnectSocket();
     this.setServerStatus('connecting');
 
     try {
       this.socket = io(targetUrl, {
         transports: ['websocket', 'polling'],
-        timeout: 6000,
-        reconnectionAttempts: 2,
+        timeout: 8000,
+        reconnectionAttempts: 3,
         reconnectionDelay: 1500,
       });
 
       this.socket.on('connect', () => {
         this.isOfflineMode = false;
-        this.setServerStatus(statusMode === 'lan' ? 'lan' : 'connected', statusMode === 'lan' ? 'LAN Connected' : 'Online Live');
-        console.log(`Connected to Snake Raja (${statusMode}) at ${targetUrl}`);
+        this.setServerStatus(statusMode);
+        console.log(`Connected to Snake Raja Arena (${statusMode})`);
         onConnected?.();
       });
 
-      this.socket.on('init', (id) => {
-        this.playerId = id;
+      this.socket.on('init', (data) => {
+        this.playerId = typeof data === 'object' ? data.id : data;
       });
 
       this.socket.on('state', (state) => {
@@ -172,8 +177,8 @@ class GameApp {
         this.setServerStatus('ready');
       });
 
-      this.socket.on('connect_error', (err) => {
-        console.warn(`Connection failed to ${targetUrl}:`, err.message);
+      this.socket.on('connect_error', () => {
+        console.warn('Backend server sleeping or unreachable. Launching Solo Arena.');
         this.setServerStatus('offline');
         this.startLocalOfflineArena(this.userProfile.username, this.userProfile.avatar);
       });
@@ -195,7 +200,7 @@ class GameApp {
     }
   }
 
-  joinGame(name, headType, mode = 'online', lanIp = '') {
+  joinGame(name, headType, mode = 'public', roomCode = 'GLOBAL') {
     this.userProfile = loginUserProfile(name, headType);
     this.savedProfiles = loadAllSavedProfiles();
     this.ui.updateProfileData(this.userProfile, this.savedProfiles, this.challenges);
@@ -213,32 +218,18 @@ class GameApp {
       return;
     }
 
-    // 2. Model 2: Local Network LAN (Wi-Fi / Hotspot Server)
-    if (mode === 'lan') {
-      let targetLan = lanIp ? lanIp.trim() : window.location.origin;
-      if (!targetLan.startsWith('http://') && !targetLan.startsWith('https://')) {
-        targetLan = `http://${targetLan}`;
-      }
-      // If user typed IP or localhost without port, auto-append :3000
-      if (!targetLan.slice(8).includes(':')) {
-        targetLan = `${targetLan}:3000`;
-      }
-      this.connectSocket(targetLan, 'lan', () => {
-        if (this.socket && this.socket.connected) {
-          this.socket.emit('join', { name, headType });
-        }
-      });
-      return;
-    }
-
-    // 3. Model 1: Online Cloud Multiplayer
-    const onlineUrl = window.location.origin.includes('github.io')
+    // 2. Model 1 & 2: Public Arena & Friends Room (100% Backend Handled)
+    const targetServerUrl = window.location.origin.includes('github.io')
       ? 'https://snake-raja.onrender.com'
       : window.location.origin;
 
-    this.connectSocket(onlineUrl, 'online', () => {
+    const statusMode = mode === 'friends' ? 'friends' : 'connected';
+    const statusLabel = mode === 'friends' ? `Room: ${roomCode}` : 'Public Arena';
+
+    this.connectSocket(targetServerUrl, statusMode, () => {
       if (this.socket && this.socket.connected) {
-        this.socket.emit('join', { name, headType });
+        this.socket.emit('join', { name, headType, roomCode });
+        this.setServerStatus(statusMode, statusLabel);
       }
     });
   }

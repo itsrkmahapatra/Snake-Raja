@@ -394,35 +394,32 @@
           </div>
         </div>
 
-        <!-- Game Mode Selector (3 Models: 1. Online Cloud, 2. Local Network LAN, 3. Offline Solo) -->
+        <!-- Game Mode Selector (1. Public Arena, 2. Friends / Wi-Fi Room, 3. Offline Solo) -->
         <div style="display: flex; flex-direction: column; gap: 4px;">
           <label style="font-size: 9px; font-weight: 800; font-family: var(--font-mono); color: #ffd700; text-transform: uppercase;">
             Play Mode
           </label>
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
             <button id="modeOnlineBtn" class="tab-btn active-tab" style="padding: 7px 4px; border-radius: 12px; font-size: 9px;">
-              🌐 Online
+              🌐 Public
             </button>
-            <button id="modeLanBtn" class="tab-btn" style="padding: 7px 4px; border-radius: 12px; font-size: 9px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);">
-              📡 Local LAN
+            <button id="modeFriendsBtn" class="tab-btn" style="padding: 7px 4px; border-radius: 12px; font-size: 9px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);">
+              👥 Friends Room
             </button>
             <button id="modeOfflineBtn" class="tab-btn" style="padding: 7px 4px; border-radius: 12px; font-size: 9px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);">
               ⚡ Offline
             </button>
           </div>
 
-          <!-- Easy LAN Setup Card (Shown only in LAN mode) -->
-          <div id="lanConfigRow" class="hidden" style="flex-direction: column; gap: 4px; margin-top: 3px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 12px; padding: 6px 8px;">
+          <!-- Friends / Wi-Fi Room Code Setup (100% Backend Managed) -->
+          <div id="roomConfigRow" class="hidden" style="flex-direction: column; gap: 4px; margin-top: 3px; background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.35); border-radius: 12px; padding: 6px 8px;">
             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 8px; font-family: var(--font-mono);">
-              <span style="color: #c084fc; font-weight: 800;">📡 Wi-Fi / Hotspot Room:</span>
-              <div style="display: flex; gap: 4px;">
-                <button id="lanScanBtn" style="background: rgba(168,85,247,0.25); border: 1px solid rgba(168,85,247,0.4); color: #c084fc; font-size: 7px; font-family: var(--font-mono); font-weight: 700; padding: 2px 6px; border-radius: 6px; cursor: pointer;">🔍 Auto-Scan</button>
-                <button id="lanLocalhostBtn" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 7px; font-family: var(--font-mono); padding: 2px 6px; border-radius: 6px; cursor: pointer;">This Device</button>
-              </div>
+              <span style="color: #c084fc; font-weight: 800;">🔑 4-Digit Room Code:</span>
+              <button id="randomRoomBtn" style="background: rgba(168,85,247,0.25); border: 1px solid rgba(168,85,247,0.4); color: #c084fc; font-size: 7px; font-family: var(--font-mono); font-weight: 700; padding: 1px 6px; border-radius: 6px; cursor: pointer;">🎲 Random Code</button>
             </div>
-            <input id="lanIpInput" type="text" placeholder="192.168.1.X (or tap Auto-Scan)" style="width: 100%; background: rgba(0,0,0,0.6); border: 1px solid rgba(168,85,247,0.4); border-radius: 10px; padding: 6px 10px; font-size: 10px; font-family: var(--font-mono); color: #fff; outline: none;" />
-            <div id="lanScanStatus" style="font-size: 7.5px; color: rgba(255,255,255,0.7); font-family: var(--font-mono); line-height: 1.2;">
-              👉 Connect friends to same Wi-Fi/Hotspot. Tapping <b>Auto-Scan</b> joins the host instantly!
+            <input id="roomCodeInput" type="text" placeholder="e.g. 7777 or ROOM-1" maxlength="10" value="7777" style="width: 100%; background: rgba(0,0,0,0.6); border: 1px solid rgba(168,85,247,0.4); border-radius: 10px; padding: 6px 10px; font-size: 11px; font-weight: 800; font-family: var(--font-mono); color: #ffd700; outline: none; text-align: center; letter-spacing: 0.1em; text-transform: uppercase;" />
+            <div style="font-size: 7.5px; color: rgba(255,255,255,0.75); font-family: var(--font-mono); line-height: 1.2;">
+              👉 Share this Room Code with friends on your Wi-Fi/Hotspot to battle in the same room!
             </div>
           </div>
         </div>

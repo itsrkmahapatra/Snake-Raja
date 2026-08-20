@@ -183,113 +183,53 @@ export class UIManager {
       });
     });
 
-    // 3 Mode Selection: Online, Local LAN, Offline Solo
-    this.selectedMode = 'online';
+    // 3 Mode Selection: Public Online, Friends Room, Offline Solo
+    this.selectedMode = 'public';
     const modeOnlineBtn = document.getElementById('modeOnlineBtn');
-    const modeLanBtn = document.getElementById('modeLanBtn');
+    const modeFriendsBtn = document.getElementById('modeFriendsBtn');
     const modeOfflineBtn = document.getElementById('modeOfflineBtn');
-    const lanConfigRow = document.getElementById('lanConfigRow');
-    const lanIpInput = document.getElementById('lanIpInput');
+    const roomConfigRow = document.getElementById('roomConfigRow');
+    const roomCodeInput = document.getElementById('roomCodeInput');
+    const randomRoomBtn = document.getElementById('randomRoomBtn');
 
-    const savedLanIp = localStorage.getItem('snake_raja_lan_ip');
-    if (savedLanIp && lanIpInput) {
-      lanIpInput.value = savedLanIp;
+    const savedRoom = localStorage.getItem('snake_raja_room_code');
+    if (savedRoom && roomCodeInput) {
+      roomCodeInput.value = savedRoom;
     }
 
+    randomRoomBtn?.addEventListener('click', () => {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      if (roomCodeInput) roomCodeInput.value = code;
+    });
+
     const resetModeTabs = () => {
-      [modeOnlineBtn, modeLanBtn, modeOfflineBtn].forEach((b) => {
+      [modeOnlineBtn, modeFriendsBtn, modeOfflineBtn].forEach((b) => {
         if (b) {
           b.classList.remove('active-tab');
           b.style.background = 'rgba(255,255,255,0.05)';
           b.style.color = 'rgba(255,255,255,0.7)';
         }
       });
-      lanConfigRow?.classList.add('hidden');
-      lanConfigRow?.classList.remove('flex');
+      roomConfigRow?.classList.add('hidden');
+      roomConfigRow?.classList.remove('flex');
     };
 
     modeOnlineBtn?.addEventListener('click', () => {
-      this.selectedMode = 'online';
+      this.selectedMode = 'public';
       resetModeTabs();
       modeOnlineBtn.classList.add('active-tab');
       modeOnlineBtn.style.background = '#00f0ff';
       modeOnlineBtn.style.color = '#000';
     });
 
-    modeLanBtn?.addEventListener('click', () => {
-      this.selectedMode = 'lan';
+    modeFriendsBtn?.addEventListener('click', () => {
+      this.selectedMode = 'friends';
       resetModeTabs();
-      modeLanBtn.classList.add('active-tab');
-      modeLanBtn.style.background = '#a855f7';
-      modeLanBtn.style.color = '#fff';
-      lanConfigRow?.classList.remove('hidden');
-      lanConfigRow?.classList.add('flex');
-    });
-
-    const lanScanBtn = document.getElementById('lanScanBtn');
-    const lanScanStatus = document.getElementById('lanScanStatus');
-
-    lanScanBtn?.addEventListener('click', async () => {
-      if (lanScanStatus) {
-        lanScanStatus.innerHTML = '🔍 Scanning local Wi-Fi / Hotspot for active host...';
-        lanScanStatus.style.color = '#c084fc';
-      }
-      const candidates = [
-        'http://localhost:3000',
-        'http://192.168.43.1:3000', // Android Hotspot default host
-        'http://172.20.10.1:3000',  // iPhone Hotspot default host
-        'http://192.168.1.1:3000',
-        'http://192.168.0.1:3000',
-      ];
-      if (window.location.port === '3000') {
-        candidates.unshift(window.location.origin);
-      }
-      if (lanIpInput?.value.trim()) {
-        let cur = lanIpInput.value.trim();
-        if (!cur.startsWith('http')) cur = `http://${cur}`;
-        if (!cur.slice(8).includes(':')) cur = `${cur}:3000`;
-        candidates.unshift(cur);
-      }
-
-      let found = null;
-      for (const url of candidates) {
-        try {
-          const res = await fetch(`${url}/api/health`, { method: 'GET', signal: AbortSignal.timeout(1200) });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'ok') {
-              found = url;
-              break;
-            }
-          }
-        } catch {
-          // continue search
-        }
-      }
-
-      if (found) {
-        if (lanIpInput) lanIpInput.value = found.replace(/^https?:\/\//, '');
-        if (lanScanStatus) {
-          lanScanStatus.innerHTML = `🟢 <b>Active Host Found:</b> ${found} (Tap DROP INTO ARENA to join friends!)`;
-          lanScanStatus.style.color = '#4ade80';
-        }
-      } else {
-        if (lanScanStatus) {
-          lanScanStatus.innerHTML = '⚠️ No host detected automatically. Enter host IP manually or run <code>npm start</code> on host PC.';
-          lanScanStatus.style.color = '#facc15';
-        }
-      }
-    });
-
-    const lanLocalhostBtn = document.getElementById('lanLocalhostBtn');
-    lanLocalhostBtn?.addEventListener('click', () => {
-      if (lanIpInput) {
-        lanIpInput.value = 'localhost:3000';
-      }
-      if (lanScanStatus) {
-        lanScanStatus.innerHTML = '✓ Selected this device (localhost:3000) as host.';
-        lanScanStatus.style.color = '#4ade80';
-      }
+      modeFriendsBtn.classList.add('active-tab');
+      modeFriendsBtn.style.background = '#a855f7';
+      modeFriendsBtn.style.color = '#fff';
+      roomConfigRow?.classList.remove('hidden');
+      roomConfigRow?.classList.add('flex');
     });
 
     modeOfflineBtn?.addEventListener('click', () => {
@@ -303,11 +243,11 @@ export class UIManager {
     // Deploy Action
     deployBtn?.addEventListener('click', () => {
       const name = nicknameInput?.value.trim() || this.userProfile?.username || 'Raja_Survivor';
-      const lanIp = lanIpInput?.value.trim() || '';
-      if (lanIp) {
-        localStorage.setItem('snake_raja_lan_ip', lanIp);
+      const roomCode = this.selectedMode === 'friends' ? (roomCodeInput?.value.trim().toUpperCase() || '7777') : (this.selectedMode === 'public' ? 'GLOBAL' : 'OFFLINE');
+      if (this.selectedMode === 'friends' && roomCode) {
+        localStorage.setItem('snake_raja_room_code', roomCode);
       }
-      this.callbacks.onJoin?.(name, this.selectedAvatar, this.selectedMode, lanIp);
+      this.callbacks.onJoin?.(name, this.selectedAvatar, this.selectedMode, roomCode);
       this.hideModal('deployModal');
       this.hideModal('victoryModal');
     });
