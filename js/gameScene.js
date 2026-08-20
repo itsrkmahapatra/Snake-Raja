@@ -34,13 +34,13 @@ export class GameScene {
     this.localPlayer = {
       active: false,
       segments: [],
-      score: 10,
+      score: 12,
       currentAngle: 0,
       isBoosting: false,
       lastSendTime: 0,
       health: 100,
-      armor: 0,
-      power: 10,
+      armor: 50,
+      power: 20,
       lastHitTime: 0,
     };
 
@@ -74,37 +74,39 @@ export class GameScene {
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(60, width / height, 0.5, 300);
-    this.camera.position.set(0, 0, 40);
+    this.camera.position.set(0, 0, 35);
+    this.camera.lookAt(0, 0, 0);
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({
       powerPreference: 'high-performance',
-      antialias: false,
+      antialias: true,
       stencil: false,
       depth: true,
       alpha: false,
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
+    this.container.innerHTML = '';
     this.container.appendChild(this.renderer.domElement);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
     dirLight.position.set(30, 30, 40);
     this.scene.add(dirLight);
 
     // Ground Plane
     const groundGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE);
-    const groundMat = new THREE.MeshBasicMaterial({ color: 0x030408 });
+    const groundMat = new THREE.MeshBasicMaterial({ color: 0x05060b });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.position.z = -0.2;
     this.scene.add(ground);
 
     // Cyber Arena Grid
-    const grid = new THREE.GridHelper(WORLD_SIZE, 50, 0x581c87, 0x1e0b36);
+    const grid = new THREE.GridHelper(WORLD_SIZE, 60, 0x8b5cf6, 0x1e1035);
     grid.rotation.x = Math.PI / 2;
     grid.position.z = -0.1;
     this.scene.add(grid);
@@ -119,25 +121,25 @@ export class GameScene {
     window.addEventListener('resize', this.onWindowResize.bind(this));
     this.setupKeyboardListeners();
 
-    // Start loop
+    // Start render loop
     this.animate();
   }
 
   createStarfield() {
-    const starsCount = 600;
+    const starsCount = 500;
     const starGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(starsCount * 3);
 
     for (let i = 0; i < starsCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 200;
-      positions[i + 1] = (Math.random() - 0.5) * 200;
+      positions[i] = (Math.random() - 0.5) * 220;
+      positions[i + 1] = (Math.random() - 0.5) * 220;
       positions[i + 2] = (Math.random() - 0.5) * 60 - 20;
     }
 
     starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const starMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.8,
+      size: 0.9,
       transparent: true,
       opacity: 0.8,
     });
@@ -147,7 +149,7 @@ export class GameScene {
   }
 
   createLootMeshes() {
-    const planeGeo = new THREE.PlaneGeometry(2.0, 2.0);
+    const planeGeo = new THREE.PlaneGeometry(2.2, 2.2);
 
     for (const [type, config] of Object.entries(EMOJI_LOOT)) {
       const texture = getEmojiTexture(config.emoji, config.glow);
@@ -158,7 +160,7 @@ export class GameScene {
         depthWrite: false,
       });
 
-      const instanced = new THREE.InstancedMesh(planeGeo, mat, 80);
+      const instanced = new THREE.InstancedMesh(planeGeo, mat, 90);
       instanced.count = 0;
       this.scene.add(instanced);
       this.lootInstancedMeshes.set(type, instanced);
@@ -196,6 +198,21 @@ export class GameScene {
   setGameState(state, playerId) {
     this.gameState = state;
     this.playerId = playerId;
+
+    if (state && playerId && state.players && state.players[playerId]) {
+      const p = state.players[playerId];
+      if (p.state === 'alive' && (!this.localPlayer.active || this.localPlayer.segments.length === 0)) {
+        this.localPlayer.active = true;
+        this.localPlayer.segments = p.segments && p.segments.length > 0
+          ? JSON.parse(JSON.stringify(p.segments))
+          : [{ x: 0, y: 0 }];
+        this.localPlayer.score = p.score || 12;
+        this.localPlayer.currentAngle = p.currentAngle || 0;
+        this.localPlayer.health = p.health || 100;
+        this.localPlayer.armor = p.armor || 50;
+        this.localPlayer.power = p.power || 20;
+      }
+    }
   }
 
   updateLootRendering(time) {
@@ -214,11 +231,11 @@ export class GameScene {
       if (!instanced) continue;
 
       const idx = counts[type] || 0;
-      if (idx >= 80) continue;
+      if (idx >= 90) continue;
 
       this.lootDummy.position.set(loot.x, loot.y, 0.5);
-      this.lootDummy.rotation.set(0, 0, Math.sin(time * 2 + loot.x) * 0.15);
-      this.lootDummy.scale.setScalar(1.5);
+      this.lootDummy.rotation.set(0, 0, Math.sin(time * 2.5 + loot.x) * 0.15);
+      this.lootDummy.scale.setScalar(1.4);
       this.lootDummy.updateMatrix();
 
       instanced.setMatrixAt(idx, this.lootDummy.matrix);
@@ -240,7 +257,7 @@ export class GameScene {
     const texture = getEmojiTexture(headConfig.emoji, headConfig.glow);
 
     // Head Mesh
-    const headGeo = new THREE.PlaneGeometry(2.5, 2.5);
+    const headGeo = new THREE.PlaneGeometry(2.6, 2.6);
     const headMat = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
@@ -251,13 +268,13 @@ export class GameScene {
     this.scene.add(headMesh);
 
     // Body Instanced Mesh
-    const sphereGeo = new THREE.SphereGeometry(0.58, 10, 10);
+    const sphereGeo = new THREE.SphereGeometry(0.65, 12, 12);
     const sphereMat = new THREE.MeshStandardMaterial({
       color: player.color || '#ffaa00',
-      roughness: 0.3,
-      metalness: 0.7,
+      roughness: 0.35,
+      metalness: 0.65,
       emissive: player.color || '#ffaa00',
-      emissiveIntensity: 0.25,
+      emissiveIntensity: 0.35,
     });
     const bodyInstanced = new THREE.InstancedMesh(sphereGeo, sphereMat, 250);
     bodyInstanced.count = 0;
@@ -321,17 +338,17 @@ export class GameScene {
           curr.y = targetY;
         } else {
           const dist = Math.abs(targetX - curr.x) + Math.abs(targetY - curr.y);
-          if (dist > 8) {
+          if (dist > 6) {
             curr.x = targetX;
             curr.y = targetY;
           } else {
-            curr.x += (targetX - curr.x) * 16 * delta;
-            curr.y += (targetY - curr.y) * 16 * delta;
+            curr.x += (targetX - curr.x) * 20 * delta;
+            curr.y += (targetY - curr.y) * 20 * delta;
           }
         }
 
         if (i === 0) {
-          snakeObj.headMesh.position.set(curr.x, curr.y, 0.6);
+          snakeObj.headMesh.position.set(curr.x, curr.y, 0.7);
           snakeObj.headMesh.rotation.set(0, 0, p.currentAngle - Math.PI / 2);
         } else {
           snakeObj.dummy.position.set(curr.x, curr.y, 0.5);
@@ -358,29 +375,29 @@ export class GameScene {
     const gs = this.gameState;
     const playerId = this.playerId;
 
-    if (gs && playerId && gs.players[playerId]) {
+    if (gs && playerId && gs.players && gs.players[playerId]) {
       const serverPlayer = gs.players[playerId];
 
       if (serverPlayer.state === 'alive') {
         if (!this.localPlayer.active && serverPlayer.segments && serverPlayer.segments.length > 0) {
           this.localPlayer.active = true;
-          this.localPlayer.segments = [...serverPlayer.segments];
+          this.localPlayer.segments = JSON.parse(JSON.stringify(serverPlayer.segments));
           this.localPlayer.score = serverPlayer.score;
-          this.localPlayer.currentAngle = serverPlayer.currentAngle;
+          this.localPlayer.currentAngle = serverPlayer.currentAngle || 0;
           this.localPlayer.health = serverPlayer.health ?? 100;
-          this.localPlayer.armor = serverPlayer.armor ?? 0;
-          this.localPlayer.power = serverPlayer.power ?? 10;
+          this.localPlayer.armor = serverPlayer.armor ?? 50;
+          this.localPlayer.power = serverPlayer.power ?? 20;
           this.localPlayer.lastHitTime = 0;
         }
 
-        if (this.localPlayer.active) {
-          // Steering
+        if (this.localPlayer.active && this.localPlayer.segments.length > 0) {
+          // 1. Steering
           if (this.inputs.joystickActive) {
             let diff = Math.atan2(
               Math.sin(this.inputs.targetAngle - this.localPlayer.currentAngle),
               Math.cos(this.inputs.targetAngle - this.localPlayer.currentAngle)
             );
-            const maxTurn = TURN_SPEED * 1.5 * delta;
+            const maxTurn = TURN_SPEED * 1.6 * delta;
             if (Math.abs(diff) <= maxTurn) {
               this.localPlayer.currentAngle = this.inputs.targetAngle;
             } else {
@@ -391,6 +408,7 @@ export class GameScene {
             if (this.inputs.right) this.localPlayer.currentAngle -= TURN_SPEED * delta;
           }
 
+          // 2. Speed & Boost
           const isBoosting = this.inputs.boost && this.localPlayer.score > 10;
           this.localPlayer.isBoosting = isBoosting;
 
@@ -399,43 +417,61 @@ export class GameScene {
           }
 
           const speed = isBoosting ? BOOST_SPEED : BASE_SPEED;
-          const head = { ...this.localPlayer.segments[0] };
+          const targetLength = Math.max(5, Math.floor(this.localPlayer.score));
+
+          // Ensure segments length matches score
+          while (this.localPlayer.segments.length < targetLength) {
+            const last = this.localPlayer.segments[this.localPlayer.segments.length - 1];
+            this.localPlayer.segments.push({ x: last.x, y: last.y });
+          }
+          while (this.localPlayer.segments.length > targetLength) {
+            this.localPlayer.segments.pop();
+          }
+
+          // Move head
+          const head = this.localPlayer.segments[0];
           head.x += Math.cos(this.localPlayer.currentAngle) * speed * delta;
           head.y += Math.sin(this.localPlayer.currentAngle) * speed * delta;
 
-          // World Boundaries
-          const boundary = WORLD_SIZE / 2;
-          if (head.x < -boundary) head.x = -boundary;
-          if (head.x > boundary) head.x = boundary;
-          if (head.y < -boundary) head.y = -boundary;
-          if (head.y > boundary) head.y = boundary;
+          // Constrain World Boundaries
+          const boundary = WORLD_SIZE / 2 - 2;
+          head.x = Math.max(-boundary, Math.min(boundary, head.x));
+          head.y = Math.max(-boundary, Math.min(boundary, head.y));
 
-          this.localPlayer.segments.unshift(head);
+          // Smooth Kinematic Snake Body Trailing
+          const spacing = 0.55;
+          for (let i = 1; i < this.localPlayer.segments.length; i++) {
+            const prev = this.localPlayer.segments[i - 1];
+            const curr = this.localPlayer.segments[i];
+            const dx = prev.x - curr.x;
+            const dy = prev.y - curr.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > spacing) {
+              const ratio = spacing / dist;
+              curr.x = prev.x - dx * ratio;
+              curr.y = prev.y - dy * ratio;
+            }
+          }
 
           if (this.localPlayer.isBoosting) {
-            this.localPlayer.score -= 2 * delta;
+            this.localPlayer.score -= 2.5 * delta;
             if (this.localPlayer.score <= 10) {
               this.localPlayer.isBoosting = false;
               this.localPlayer.score = 10;
             }
           }
 
-          const targetLength = Math.floor(this.localPlayer.score);
-          while (this.localPlayer.segments.length > targetLength) {
-            this.localPlayer.segments.pop();
-          }
-
-          // Loot collision
+          // Loot Collision Check
           for (const lootId in gs.loot) {
             if (this.localCollectedLoot.has(lootId)) continue;
             const item = gs.loot[lootId];
             const dx = head.x - item.x;
             const dy = head.y - item.y;
-            if (dx * dx + dy * dy < 4) {
+            if (dx * dx + dy * dy < 4.5) {
               if (item.type === 'medkit') {
-                this.localPlayer.health = Math.min(100, this.localPlayer.health + 40);
+                this.localPlayer.health = Math.min(100, this.localPlayer.health + 35);
               } else if (item.type === 'armor') {
-                this.localPlayer.armor = Math.min(100, this.localPlayer.armor + 40);
+                this.localPlayer.armor = Math.min(100, this.localPlayer.armor + 35);
                 this.onChallengeProgress?.('shields', 1);
               } else if (item.type === 'weapon') {
                 this.localPlayer.power += 5;
@@ -454,7 +490,7 @@ export class GameScene {
             }
           }
 
-          // Collisions with other snakes
+          // Enemy Collision Check
           let collidedOther = null;
           let closeEnemy = false;
 
@@ -468,7 +504,7 @@ export class GameScene {
               const dy = head.y - seg.y;
               const distSq = dx * dx + dy * dy;
 
-              if (distSq < 2.25) {
+              if (distSq < 2.5) {
                 collidedOther = other;
                 break;
               } else if (distSq < 16) {
@@ -478,7 +514,6 @@ export class GameScene {
             if (collidedOther) break;
           }
 
-          // Daredevil challenge check
           const now = Date.now();
           if (closeEnemy && now - this.lastDaredevilCheck > 3000) {
             this.lastDaredevilCheck = now;
@@ -488,7 +523,6 @@ export class GameScene {
           if (collidedOther) {
             if (now - this.localPlayer.lastHitTime > 500) {
               const damage = collidedOther.power || 15;
-
               if (collidedOther.isTitanBoss) {
                 this.onChallengeProgress?.('titan_boss', 1);
               }
@@ -506,9 +540,8 @@ export class GameScene {
               }
 
               this.localPlayer.lastHitTime = now;
-              head.x -= Math.cos(this.localPlayer.currentAngle) * 3;
-              head.y -= Math.sin(this.localPlayer.currentAngle) * 3;
-              this.localPlayer.segments[0] = head;
+              head.x -= Math.cos(this.localPlayer.currentAngle) * 2.5;
+              head.y -= Math.sin(this.localPlayer.currentAngle) * 2.5;
             }
 
             if (this.localPlayer.health <= 0) {
@@ -527,6 +560,7 @@ export class GameScene {
             }
           }
 
+          // Sync local player to gameState
           gs.players[playerId].segments = this.localPlayer.segments;
           gs.players[playerId].score = this.localPlayer.score;
           gs.players[playerId].currentAngle = this.localPlayer.currentAngle;
@@ -535,7 +569,7 @@ export class GameScene {
           gs.players[playerId].armor = this.localPlayer.armor;
           gs.players[playerId].power = this.localPlayer.power;
 
-          // Send state to server at 14Hz
+          // Send state update at 14Hz
           if (now - this.localPlayer.lastSendTime > 70) {
             this.onStateSend?.({
               segments: this.localPlayer.segments.map((s) => ({ x: roundCoord(s.x), y: roundCoord(s.y) })),
@@ -550,13 +584,13 @@ export class GameScene {
             this.localPlayer.lastSendTime = now;
           }
 
-          // Camera Follow
+          // Camera Smooth Following
           const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-          const baseHeight = aspect < 0.8 ? 32 : aspect < 1.2 ? 25 : 20;
-          const targetZ = Math.min(50, Math.max(baseHeight, baseHeight + this.localPlayer.score * 0.15));
+          const baseHeight = aspect < 0.8 ? 32 : aspect < 1.2 ? 26 : 22;
+          const targetZ = Math.min(48, Math.max(baseHeight, baseHeight + this.localPlayer.score * 0.12));
 
-          this.camera.position.x += (head.x - this.camera.position.x) * 10 * delta;
-          this.camera.position.y += (head.y - this.camera.position.y) * 10 * delta;
+          this.camera.position.x += (head.x - this.camera.position.x) * 12 * delta;
+          this.camera.position.y += (head.y - this.camera.position.y) * 12 * delta;
           this.camera.position.z += (targetZ - this.camera.position.z) * 4 * delta;
           this.camera.lookAt(this.camera.position.x, this.camera.position.y, 0);
         }

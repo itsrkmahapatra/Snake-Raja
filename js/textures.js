@@ -28,28 +28,29 @@ export function getEmojiTexture(emoji, glowColor = '#ffaa00') {
   ctx.clearRect(0, 0, 128, 128);
 
   // Outer ambient glow ring
-  const gradient = ctx.createRadialGradient(64, 64, 16, 64, 64, 60);
-  gradient.addColorStop(0, glowColor + '99');
-  gradient.addColorStop(0.6, glowColor + '33');
+  const gradient = ctx.createRadialGradient(64, 64, 16, 64, 64, 58);
+  gradient.addColorStop(0, glowColor);
+  gradient.addColorStop(0.5, glowColor + '88');
   gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(64, 64, 60, 0, Math.PI * 2);
+  ctx.arc(64, 64, 58, 0, Math.PI * 2);
   ctx.fill();
 
   // Draw Emoji centered
-  ctx.font = '72px sans-serif';
+  ctx.font = '64px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 18;
-  ctx.fillText(emoji, 64, 68);
+  ctx.shadowBlur = 14;
+  ctx.fillText(emoji, 64, 66);
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
   textureCache.set(key, texture);
 
   return texture;
