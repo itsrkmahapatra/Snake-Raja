@@ -183,10 +183,35 @@ export class UIManager {
       });
     });
 
+    // Mode selection (Multiplayer vs Solo)
+    this.selectedMode = 'multiplayer';
+    const modeMultiplayerBtn = document.getElementById('modeMultiplayerBtn');
+    const modeSoloBtn = document.getElementById('modeSoloBtn');
+
+    modeMultiplayerBtn?.addEventListener('click', () => {
+      this.selectedMode = 'multiplayer';
+      modeMultiplayerBtn.classList.add('active-tab');
+      modeMultiplayerBtn.style.background = '#00f0ff';
+      modeMultiplayerBtn.style.color = '#000';
+      modeSoloBtn.classList.remove('active-tab');
+      modeSoloBtn.style.background = 'rgba(255,255,255,0.05)';
+      modeSoloBtn.style.color = 'rgba(255,255,255,0.7)';
+    });
+
+    modeSoloBtn?.addEventListener('click', () => {
+      this.selectedMode = 'solo';
+      modeSoloBtn.classList.add('active-tab');
+      modeSoloBtn.style.background = '#ffd700';
+      modeSoloBtn.style.color = '#000';
+      modeMultiplayerBtn.classList.remove('active-tab');
+      modeMultiplayerBtn.style.background = 'rgba(255,255,255,0.05)';
+      modeMultiplayerBtn.style.color = 'rgba(255,255,255,0.7)';
+    });
+
     // Deploy Action
     deployBtn?.addEventListener('click', () => {
       const name = nicknameInput?.value.trim() || this.userProfile?.username || 'Raja_Survivor';
-      this.callbacks.onJoin?.(name, this.selectedAvatar);
+      this.callbacks.onJoin?.(name, this.selectedAvatar, this.selectedMode);
       this.hideModal('deployModal');
       this.hideModal('victoryModal');
     });

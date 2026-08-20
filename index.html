@@ -394,6 +394,21 @@
           </div>
         </div>
 
+        <!-- Game Mode Selector -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-size: 9px; font-weight: 800; font-family: var(--font-mono); color: #ffd700; text-transform: uppercase;">
+            Arena Mode
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button id="modeMultiplayerBtn" class="tab-btn active-tab" style="padding: 8px; border-radius: 12px; font-size: 10px;">
+              🌐 Multiplayer
+            </button>
+            <button id="modeSoloBtn" class="tab-btn" style="padding: 8px; border-radius: 12px; font-size: 10px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);">
+              ⚡ Solo (Zero Data)
+            </button>
+          </div>
+        </div>
+
         <!-- Deploy Button -->
         <button id="deployBtn" style="width: 100%; padding: 12px; border-radius: 16px; background: linear-gradient(90deg, #ffd700, #ffaa00, #ff5500); color: #000; font-size: 13px; font-weight: 900; font-family: var(--font-mono); border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 0 25px rgba(255,170,0,0.5); display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 4px;">
           <span>⚔️</span> DROP INTO ARENA
