@@ -40,6 +40,15 @@ html, body {
   font-family: var(--font-sans);
 }
 
+/* Visibility Utilities */
+.hidden {
+  display: none !important;
+}
+
+.flex {
+  display: flex !important;
+}
+
 #canvasContainer {
   position: fixed;
   inset: 0;
@@ -75,7 +84,7 @@ html, body {
 
 /* Cyber Glass Containers */
 .cyber-glass {
-  background: linear-gradient(135deg, rgba(16, 20, 32, 0.85) 0%, rgba(8, 10, 18, 0.92) 100%);
+  background: linear-gradient(135deg, rgba(16, 20, 32, 0.88) 0%, rgba(8, 10, 18, 0.94) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -241,6 +250,10 @@ html, body {
   pointer-events: auto;
 }
 
+.modal-backdrop.hidden {
+  display: none !important;
+}
+
 .modal-card {
   width: 100%;
   max-width: 320px;
@@ -309,6 +322,99 @@ html, body {
   color: #ffffff;
   box-shadow: 0 0 15px rgba(255, 170, 0, 0.4);
   transform: scale(1.02);
+}
+
+/* Accounts List Card */
+.account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+}
+
+.account-card.active-account {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+}
+
+.login-sub-btn {
+  background: #00f0ff;
+  color: #000;
+  border: none;
+  cursor: pointer;
+}
+
+/* Quests List Card */
+.quest-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+}
+
+.quest-card.quest-done {
+  background: rgba(255, 170, 0, 0.15);
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255, 200, 0, 0.2);
+}
+
+.quest-card.quest-claimed {
+  opacity: 0.5;
+}
+
+.claim-btn {
+  background: #ffd700;
+  color: #000;
+  border: none;
+  cursor: pointer;
+}
+
+/* Roster Item */
+.roster-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+}
+
+.roster-item.roster-raja {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffd700;
+}
+
+.roster-item.roster-me {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00f0ff;
+}
+
+/* Leaderboard Row */
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+}
+
+.leaderboard-row.leaderboard-me {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffd700;
 }
 
 /* Micro Kill Feed */
