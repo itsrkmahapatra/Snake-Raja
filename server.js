@@ -216,7 +216,6 @@ function triggerWin(winner) {
 
   io.emit('match_won', state.match.winner);
 
-  // Victory loot drop (compact 12 items)
   if (winner.segments.length > 0) {
     const head = winner.segments[0];
     for (let i = 0; i < 12; i++) {
@@ -434,7 +433,12 @@ function updateBots(delta) {
   }
 }
 
+// Track active real player count to pause loop when idle
+let activeHumanPlayers = 0;
+
 io.on('connection', (socket) => {
+  activeHumanPlayers++;
+
   socket.on('join', (payload) => {
     const currentRealPlayers = Object.values(state.players).filter((p) => !p.isBot && p.state === 'alive').length;
     if (currentRealPlayers >= MAX_PLAYERS) {
@@ -522,6 +526,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    activeHumanPlayers = Math.max(0, activeHumanPlayers - 1);
     const player = state.players[socket.id];
     if (player && player.state === 'alive') {
       player.segments.forEach((seg, i) => {
@@ -536,8 +541,10 @@ let simTickCount = 0;
 let secondCounter = 0;
 const SIM_DELTA = 1 / SIMULATION_TICK_RATE;
 
-// 1. Simulation Loop (30Hz)
+// 1. Simulation Loop (Runs only when human players are connected)
 setInterval(() => {
+  if (activeHumanPlayers === 0) return; // Sleep / Idle when 0 players
+
   simTickCount++;
   secondCounter += SIM_DELTA;
 
@@ -592,8 +599,10 @@ setInterval(() => {
   }
 }, 1000 / SIMULATION_TICK_RATE);
 
-// 2. Network Broadcast Loop (15Hz)
+// 2. Network Broadcast Loop (Runs only when human players are connected)
 setInterval(() => {
+  if (activeHumanPlayers === 0) return; // Sleep / Idle when 0 players
+
   state.leaderboard = Object.values(state.players)
     .filter((p) => p.state === 'alive')
     .sort((a, b) => b.score - a.score)
@@ -622,7 +631,7 @@ setInterval(() => {
 app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', activePlayers: activeHumanPlayers });
 });
 
 app.get('/ping', (req, res) => {
