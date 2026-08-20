@@ -47,7 +47,7 @@ class GameApp {
 
     // Initialize UI Manager
     this.ui = new UIManager(this.gameScene, {
-      onJoin: (name, headType, mode) => this.joinGame(name, headType, mode),
+      onJoin: (name, headType, mode, lanIp) => this.joinGame(name, headType, mode, lanIp),
       onLogin: (name, headType) => this.loginUser(name, headType),
       onSwitchProfile: (id) => this.switchProfile(id),
       onClaimChallenge: (id) => this.claimChallengeReward(id),
@@ -82,45 +82,43 @@ class GameApp {
     }
   }
 
-  setServerStatus(status) {
+  setServerStatus(status, customText) {
     const badge = document.getElementById('serverStatusBadge');
     if (!badge) return;
     if (status === 'connected') {
-      badge.innerHTML = '🟢 <span style="color: #4ade80;">Multiplayer Live</span>';
+      badge.innerHTML = `🟢 <span style="color: #4ade80;">${customText || 'Online Live'}</span>`;
       badge.style.borderColor = 'rgba(74, 222, 128, 0.4)';
+    } else if (status === 'lan') {
+      badge.innerHTML = `📡 <span style="color: #c084fc;">${customText || 'Local LAN'}</span>`;
+      badge.style.borderColor = 'rgba(192, 132, 252, 0.4)';
     } else if (status === 'connecting') {
-      badge.innerHTML = '🟡 <span style="color: #facc15;">Connecting Server...</span>';
+      badge.innerHTML = '🟡 <span style="color: #facc15;">Connecting...</span>';
       badge.style.borderColor = 'rgba(250, 204, 21, 0.4)';
-    } else if (status === 'solo') {
-      badge.innerHTML = '🔵 <span style="color: #60a5fa;">Solo (Zero Data)</span>';
-      badge.style.borderColor = 'rgba(96, 165, 250, 0.4)';
+    } else if (status === 'offline') {
+      badge.innerHTML = '⚡ <span style="color: #ffd700;">Offline Solo</span>';
+      badge.style.borderColor = 'rgba(255, 215, 0, 0.4)';
     } else {
       badge.innerHTML = '⚡ <span style="color: #ffd700;">Ready to Play</span>';
       badge.style.borderColor = 'rgba(255, 215, 0, 0.4)';
     }
   }
 
-  connectSocket(onConnected) {
-    if (this.socket && this.socket.connected) {
-      onConnected?.();
-      return;
-    }
-
+  connectSocket(targetUrl, statusMode, onConnected) {
+    this.disconnectSocket();
     this.setServerStatus('connecting');
-    const wsUrl = window.location.origin;
 
     try {
-      this.socket = io(wsUrl, {
+      this.socket = io(targetUrl, {
         transports: ['websocket', 'polling'],
-        timeout: 8000,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 2000,
+        timeout: 6000,
+        reconnectionAttempts: 2,
+        reconnectionDelay: 1500,
       });
 
       this.socket.on('connect', () => {
         this.isOfflineMode = false;
-        this.setServerStatus('connected');
-        console.log('Connected to Snake Raja Arena Server on-demand');
+        this.setServerStatus(statusMode === 'lan' ? 'lan' : 'connected', statusMode === 'lan' ? 'LAN Connected' : 'Online Live');
+        console.log(`Connected to Snake Raja (${statusMode}) at ${targetUrl}`);
         onConnected?.();
       });
 
@@ -174,13 +172,13 @@ class GameApp {
         this.setServerStatus('ready');
       });
 
-      this.socket.on('connect_error', () => {
-        console.warn('Backend server sleeping or unreachable. Launching Solo Arena.');
-        this.setServerStatus('solo');
+      this.socket.on('connect_error', (err) => {
+        console.warn(`Connection failed to ${targetUrl}:`, err.message);
+        this.setServerStatus('offline');
         this.startLocalOfflineArena(this.userProfile.username, this.userProfile.avatar);
       });
     } catch {
-      this.setServerStatus('solo');
+      this.setServerStatus('offline');
       this.startLocalOfflineArena(this.userProfile.username, this.userProfile.avatar);
     }
   }
@@ -197,7 +195,7 @@ class GameApp {
     }
   }
 
-  joinGame(name, headType, mode = 'multiplayer') {
+  joinGame(name, headType, mode = 'online', lanIp = '') {
     this.userProfile = loginUserProfile(name, headType);
     this.savedProfiles = loadAllSavedProfiles();
     this.ui.updateProfileData(this.userProfile, this.savedProfiles, this.challenges);
@@ -207,21 +205,38 @@ class GameApp {
       this.offlineInterval = null;
     }
 
-    if (mode === 'solo') {
-      // Zero backend usage: 100% offline local simulation
+    // 1. Model 3: Offline Solo Arena (Zero Network Traffic)
+    if (mode === 'offline') {
       this.disconnectSocket();
-      this.setServerStatus('solo');
+      this.setServerStatus('offline');
       this.startLocalOfflineArena(name, headType);
-    } else {
-      // Connect to multiplayer server strictly on-demand
-      this.connectSocket(() => {
+      return;
+    }
+
+    // 2. Model 2: Local Network LAN (Wi-Fi / Hotspot Server)
+    if (mode === 'lan') {
+      let targetLan = lanIp ? lanIp.trim() : window.location.origin;
+      if (!targetLan.startsWith('http://') && !targetLan.startsWith('https://')) {
+        targetLan = `http://${targetLan}`;
+      }
+      this.connectSocket(targetLan, 'lan', () => {
         if (this.socket && this.socket.connected) {
           this.socket.emit('join', { name, headType });
-        } else {
-          this.startLocalOfflineArena(name, headType);
         }
       });
+      return;
     }
+
+    // 3. Model 1: Online Cloud Multiplayer
+    const onlineUrl = window.location.origin.includes('github.io')
+      ? 'https://snake-raja.onrender.com'
+      : window.location.origin;
+
+    this.connectSocket(onlineUrl, 'online', () => {
+      if (this.socket && this.socket.connected) {
+        this.socket.emit('join', { name, headType });
+      }
+    });
   }
 
   startLocalOfflineArena(name, headType) {
@@ -329,7 +344,7 @@ class GameApp {
     this.gameScene.setGameState(localState, localId);
     this.ui.updateHUD(localState, localId);
 
-    // Simple offline local bot loop (30Hz)
+    // Simple offline local bot loop (10Hz)
     this.offlineInterval = setInterval(() => {
       if (!this.gameState || !this.isOfflineMode) return;
 

@@ -183,35 +183,65 @@ export class UIManager {
       });
     });
 
-    // Mode selection (Multiplayer vs Solo)
-    this.selectedMode = 'multiplayer';
-    const modeMultiplayerBtn = document.getElementById('modeMultiplayerBtn');
-    const modeSoloBtn = document.getElementById('modeSoloBtn');
+    // 3 Mode Selection: Online, Local LAN, Offline Solo
+    this.selectedMode = 'online';
+    const modeOnlineBtn = document.getElementById('modeOnlineBtn');
+    const modeLanBtn = document.getElementById('modeLanBtn');
+    const modeOfflineBtn = document.getElementById('modeOfflineBtn');
+    const lanConfigRow = document.getElementById('lanConfigRow');
+    const lanIpInput = document.getElementById('lanIpInput');
 
-    modeMultiplayerBtn?.addEventListener('click', () => {
-      this.selectedMode = 'multiplayer';
-      modeMultiplayerBtn.classList.add('active-tab');
-      modeMultiplayerBtn.style.background = '#00f0ff';
-      modeMultiplayerBtn.style.color = '#000';
-      modeSoloBtn.classList.remove('active-tab');
-      modeSoloBtn.style.background = 'rgba(255,255,255,0.05)';
-      modeSoloBtn.style.color = 'rgba(255,255,255,0.7)';
+    const savedLanIp = localStorage.getItem('snake_raja_lan_ip');
+    if (savedLanIp && lanIpInput) {
+      lanIpInput.value = savedLanIp;
+    }
+
+    const resetModeTabs = () => {
+      [modeOnlineBtn, modeLanBtn, modeOfflineBtn].forEach((b) => {
+        if (b) {
+          b.classList.remove('active-tab');
+          b.style.background = 'rgba(255,255,255,0.05)';
+          b.style.color = 'rgba(255,255,255,0.7)';
+        }
+      });
+      lanConfigRow?.classList.add('hidden');
+      lanConfigRow?.classList.remove('flex');
+    };
+
+    modeOnlineBtn?.addEventListener('click', () => {
+      this.selectedMode = 'online';
+      resetModeTabs();
+      modeOnlineBtn.classList.add('active-tab');
+      modeOnlineBtn.style.background = '#00f0ff';
+      modeOnlineBtn.style.color = '#000';
     });
 
-    modeSoloBtn?.addEventListener('click', () => {
-      this.selectedMode = 'solo';
-      modeSoloBtn.classList.add('active-tab');
-      modeSoloBtn.style.background = '#ffd700';
-      modeSoloBtn.style.color = '#000';
-      modeMultiplayerBtn.classList.remove('active-tab');
-      modeMultiplayerBtn.style.background = 'rgba(255,255,255,0.05)';
-      modeMultiplayerBtn.style.color = 'rgba(255,255,255,0.7)';
+    modeLanBtn?.addEventListener('click', () => {
+      this.selectedMode = 'lan';
+      resetModeTabs();
+      modeLanBtn.classList.add('active-tab');
+      modeLanBtn.style.background = '#a855f7';
+      modeLanBtn.style.color = '#fff';
+      lanConfigRow?.classList.remove('hidden');
+      lanConfigRow?.classList.add('flex');
+    });
+
+    modeOfflineBtn?.addEventListener('click', () => {
+      this.selectedMode = 'offline';
+      resetModeTabs();
+      modeOfflineBtn.classList.add('active-tab');
+      modeOfflineBtn.style.background = '#ffd700';
+      modeOfflineBtn.style.color = '#000';
     });
 
     // Deploy Action
     deployBtn?.addEventListener('click', () => {
       const name = nicknameInput?.value.trim() || this.userProfile?.username || 'Raja_Survivor';
-      this.callbacks.onJoin?.(name, this.selectedAvatar, this.selectedMode);
+      const lanIp = lanIpInput?.value.trim() || '';
+      if (lanIp) {
+        localStorage.setItem('snake_raja_lan_ip', lanIp);
+      }
+      this.callbacks.onJoin?.(name, this.selectedAvatar, this.selectedMode, lanIp);
       this.hideModal('deployModal');
       this.hideModal('victoryModal');
     });
