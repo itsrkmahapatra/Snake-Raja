@@ -23,7 +23,9 @@ import {
   TURN_SPEED,
   TARGET_WIN_SCORE,
   ROUND_DURATION_SECS,
-  TARGET_BOT_COUNT,
+  MAX_PLAYERS,
+  MIN_BOTS,
+  MAX_BOTS,
   roundCoord,
 } from './src/shared/types.ts';
 
@@ -94,7 +96,7 @@ function spawnLoot(x?: number, y?: number, value = 1, color?: string, force = fa
   };
 }
 
-// Initial compact loot pool (60 items instead of 160)
+// Initial compact loot pool (60 items)
 for (let i = 0; i < 60; i++) {
   spawnLoot();
 }
@@ -140,14 +142,13 @@ function createBot(name: string, isTitan = false): Player {
   };
 }
 
-// Maintain 2-3 bots strictly to minimize bandwidth
+// Dynamically target random 3 or 4 bots
+let targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
+
 function maintainBots() {
   const activeBots = Object.values(state.players).filter(p => p.isBot && p.state === 'alive');
-  const realPlayers = Object.values(state.players).filter(p => !p.isBot && p.state === 'alive').length;
-  // If there are real players, keep 2 bots (total 3 snakes in arena). If solo, keep 2 bots.
-  const targetCount = realPlayers > 1 ? 1 : TARGET_BOT_COUNT;
 
-  if (activeBots.length < targetCount && state.match.status === 'playing') {
+  if (activeBots.length < targetBotCount && state.match.status === 'playing') {
     const existingNames = new Set(Object.values(state.players).map(p => p.name));
     const availableNames = BOT_NAMES.filter(n => !existingNames.has(n));
     const name = availableNames.length > 0
@@ -158,8 +159,8 @@ function maintainBots() {
   }
 }
 
-// Spawn initial 2 bots
-for (let i = 0; i < TARGET_BOT_COUNT; i++) {
+// Spawn initial random 3 or 4 bots
+for (let i = 0; i < targetBotCount; i++) {
   maintainBots();
 }
 
@@ -230,6 +231,9 @@ function restartRound() {
   state.match.roundTimeRemaining = ROUND_DURATION_SECS;
   state.match.nextRoundCountdown = 0;
   state.currentEvent = null;
+
+  // Pick random 3 or 4 bots for new round
+  targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
 
   // Reset all players
   for (const id in state.players) {
@@ -321,9 +325,8 @@ function handleArenaEvents() {
           };
         }
       } else if (chosen === 'titan') {
-        // Only spawn titan if total bots <= 2
         const currentBots = Object.values(state.players).filter(p => p.isBot && p.state === 'alive');
-        if (currentBots.length <= 2) {
+        if (currentBots.length < MAX_BOTS) {
           const titan = createBot('TITAN', true);
           state.players[titan.id] = titan;
         }
@@ -439,6 +442,13 @@ function updateBots(delta: number) {
 
 io.on('connection', (socket) => {
   socket.on('join', (payload?: string | { name?: string; headType?: string }) => {
+    // Check maximum players limit (10 players)
+    const currentRealPlayers = Object.values(state.players).filter(p => !p.isBot && p.state === 'alive').length;
+    if (currentRealPlayers >= MAX_PLAYERS) {
+      socket.emit('room_full', { maxPlayers: MAX_PLAYERS });
+      return;
+    }
+
     let customName = typeof payload === 'string' ? payload : payload?.name;
     let selectedHead = typeof payload === 'object' ? payload?.headType : undefined;
 
@@ -546,7 +556,7 @@ let broadcastTickCount = 0;
 let secondCounter = 0;
 const SIM_DELTA = 1 / SIMULATION_TICK_RATE;
 
-// 1. Simulation Game Loop (30Hz for smooth bot movement & physics)
+// 1. Simulation Game Loop (30Hz for physics & bot movement)
 setInterval(() => {
   simTickCount++;
   secondCounter += SIM_DELTA;
