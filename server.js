@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -639,5 +640,25 @@ app.get('/ping', (req, res) => {
 });
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Snake Raja Server running on http://localhost:${PORT}`);
+  console.log('====================================================');
+  console.log(`🐍 SNAKE RAJA MULTIPLAYER ARENA SERVER`);
+  console.log('====================================================');
+  console.log(`💻 Localhost:       http://localhost:${PORT}`);
+
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          console.log(`📡 Wi-Fi / Hotspot: http://${iface.address}:${PORT}`);
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  console.log('----------------------------------------------------');
+  console.log(`👉 To play Local LAN: Connect devices to this Wi-Fi/Hotspot`);
+  console.log('====================================================');
 });

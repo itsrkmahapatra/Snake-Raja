@@ -219,6 +219,10 @@ class GameApp {
       if (!targetLan.startsWith('http://') && !targetLan.startsWith('https://')) {
         targetLan = `http://${targetLan}`;
       }
+      // If user typed IP or localhost without port, auto-append :3000
+      if (!targetLan.slice(8).includes(':')) {
+        targetLan = `${targetLan}:3000`;
+      }
       this.connectSocket(targetLan, 'lan', () => {
         if (this.socket && this.socket.connected) {
           this.socket.emit('join', { name, headType });

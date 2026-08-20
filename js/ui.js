@@ -226,6 +226,13 @@ export class UIManager {
       lanConfigRow?.classList.add('flex');
     });
 
+    const lanLocalhostBtn = document.getElementById('lanLocalhostBtn');
+    lanLocalhostBtn?.addEventListener('click', () => {
+      if (lanIpInput) {
+        lanIpInput.value = 'localhost:3000';
+      }
+    });
+
     modeOfflineBtn?.addEventListener('click', () => {
       this.selectedMode = 'offline';
       resetModeTabs();
