@@ -258,7 +258,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         get().updateChallengeProgress('rank1', 1);
       }
 
-      if (now - lastUiUpdate > 80) { // Throttle React updates to ~12Hz
+      if (now - lastUiUpdate > 120) { // Throttle React updates to ~8Hz to prevent mobile UI lag
         set({ gameState: state });
         lastUiUpdate = now;
       }

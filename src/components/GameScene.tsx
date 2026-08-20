@@ -19,42 +19,34 @@ function SnakeNameTag({ player, isLocal, isLeader }: { player: Player; isLocal: 
 
   return (
     <Html
-      position={[head.x, head.y, 2.0]}
+      position={[head.x, head.y, 1.8]}
       center
-      distanceFactor={32}
+      distanceFactor={35}
       className="pointer-events-none select-none z-10"
     >
       <div
-        className={`flex flex-col items-center gap-0.5 px-2 py-0.5 rounded-xl backdrop-blur-md border shadow-2xl transition-transform ${
+        className={`flex flex-col items-center gap-0.5 px-2 py-0.5 rounded-lg border text-[10px] font-mono font-bold ${
           isLeader
-            ? 'bg-amber-950/85 border-yellow-400 ring-1 ring-yellow-400/50 scale-105 shadow-[0_0_15px_rgba(255,200,0,0.4)]'
+            ? 'bg-amber-950/90 border-yellow-400 text-yellow-300 shadow-md scale-105'
             : player.isTitanBoss
-            ? 'bg-purple-950/90 border-amber-400 ring-2 ring-amber-400 scale-110 shadow-[0_0_20px_rgba(255,215,0,0.5)]'
+            ? 'bg-purple-950/90 border-amber-400 text-amber-300 shadow-md scale-110'
             : isLocal
-            ? 'bg-cyan-950/80 border-cyan-400/80 ring-1 ring-cyan-400/30'
-            : 'bg-black/75 border-white/20'
+            ? 'bg-cyan-950/90 border-cyan-400 text-cyan-200'
+            : 'bg-black/80 border-white/20 text-white/90'
         }`}
-        style={{ minWidth: '76px' }}
+        style={{ minWidth: '70px' }}
       >
-        <div className="flex items-center gap-1 text-[11px] font-black font-mono tracking-tight leading-none">
-          {isLeader && <span className="text-yellow-300 drop-shadow">👑</span>}
-          {player.isTitanBoss && <span className="text-amber-400 animate-bounce">🐉</span>}
-          {player.isBountyTarget && <span className="text-red-400 animate-pulse">🎯</span>}
-          <span
-            style={{ color: player.color || '#fff' }}
-            className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] max-w-[90px] truncate font-bold"
-          >
+        <div className="flex items-center gap-1 leading-none">
+          {isLeader && <span>👑</span>}
+          {player.isTitanBoss && <span>🐉</span>}
+          <span className="truncate max-w-[80px]">
             {isLocal ? `⭐ ${player.name}` : player.name}
           </span>
-          <span className="text-[9px] font-bold text-yellow-300 bg-white/10 px-1 py-0.2 rounded">
-            {Math.floor(player.score)}
-          </span>
+          <span className="text-[8px] opacity-75">{Math.floor(player.score)}</span>
         </div>
-
-        {/* Mini HP / Armor bar */}
-        <div className="w-full h-1 bg-black/90 rounded-full overflow-hidden flex">
+        <div className="w-full h-1 bg-black/80 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-red-500 via-yellow-400 to-emerald-400 transition-all duration-150"
+            className="h-full bg-gradient-to-r from-red-500 via-yellow-400 to-green-400"
             style={{ width: `${Math.max(0, Math.min(100, player.health ?? 100))}%` }}
           />
         </div>
@@ -97,7 +89,7 @@ function Snake({
     }
 
     headRef.current.visible = true;
-    const count = player.segments.length;
+    const count = Math.min(player.segments.length, 250);
     bodyRef.current.count = Math.max(0, count - 1);
 
     while (currentPositions.current.length < count) {
@@ -118,13 +110,12 @@ function Snake({
         curr.y = targetY;
       } else {
         const dist = Math.abs(targetX - curr.x) + Math.abs(targetY - curr.y);
-        if (dist > 10) {
+        if (dist > 8) {
           curr.x = targetX;
           curr.y = targetY;
         } else {
-          const lerpFactor = 15;
-          curr.x += (targetX - curr.x) * lerpFactor * delta;
-          curr.y += (targetY - curr.y) * lerpFactor * delta;
+          curr.x += (targetX - curr.x) * 16 * delta;
+          curr.y += (targetY - curr.y) * 16 * delta;
         }
       }
 
@@ -149,38 +140,26 @@ function Snake({
         <SnakeNameTag player={player} isLocal={isLocal} isLeader={isLeader} />
       )}
       <mesh ref={headRef}>
-        <planeGeometry args={[2.6, 2.6]} />
+        <planeGeometry args={[2.5, 2.5]} />
         <meshBasicMaterial
           map={texture}
           transparent
           side={THREE.DoubleSide}
-          blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
       <instancedMesh
         ref={bodyRef}
-        args={[null as any, null as any, 2000]}
-        castShadow
-        receiveShadow
+        args={[null as any, null as any, 250]}
         frustumCulled={false}
       >
-        <sphereGeometry args={[0.6, 16, 16]} />
+        <sphereGeometry args={[0.58, 10, 10]} />
         <meshStandardMaterial
           color={color}
-          roughness={0.2}
-          metalness={0.8}
-          toneMapped={false}
-          onBeforeCompile={(shader) => {
-            shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <emissivemap_fragment>',
-              `
-              #include <emissivemap_fragment>
-              float fresnel = pow(1.0 - max(dot(normal, normalize(vViewPosition)), 0.0), 2.0);
-              totalEmissiveRadiance += diffuseColor.rgb * (0.4 + fresnel * 1.5);
-              `
-            );
-          }}
+          roughness={0.3}
+          metalness={0.7}
+          emissive={color}
+          emissiveIntensity={0.25}
         />
       </instancedMesh>
     </group>
@@ -214,12 +193,13 @@ function EmojiLootInstanced({
       if (loot.type !== type) continue;
 
       dummy.position.set(loot.x, loot.y, 0.5);
-      dummy.rotation.set(0, 0, Math.sin(timeRef.current * 3 + loot.x) * 0.2);
-      dummy.scale.setScalar(1.6 + Math.sin(timeRef.current * 4 + loot.y) * 0.15);
+      dummy.rotation.set(0, 0, Math.sin(timeRef.current * 2 + loot.x) * 0.15);
+      dummy.scale.setScalar(1.5);
       dummy.updateMatrix();
 
       meshRef.current.setMatrixAt(count, dummy.matrix);
       count++;
+      if (count >= 80) break;
     }
 
     meshRef.current.count = count;
@@ -227,13 +207,12 @@ function EmojiLootInstanced({
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[null as any, null as any, 300]}>
-      <planeGeometry args={[2.2, 2.2]} />
+    <instancedMesh ref={meshRef} args={[null as any, null as any, 80]}>
+      <planeGeometry args={[2.0, 2.0]} />
       <meshBasicMaterial
         map={texture}
         transparent
         side={THREE.DoubleSide}
-        blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
     </instancedMesh>
@@ -275,8 +254,6 @@ export function GameScene() {
 
   const { camera, size } = useThree();
   const inputs = useRef({ left: false, right: false, boost: false });
-  const lightRef = useRef<THREE.DirectionalLight>(null);
-  const [lightTarget] = useState(() => new THREE.Object3D());
   const lastDaredevilCheck = useRef(0);
 
   const localPlayerRef = useRef<{
@@ -368,7 +345,7 @@ export function GameScene() {
           Math.sin(mobileInputs.targetAngle - localPlayerRef.current.currentAngle),
           Math.cos(mobileInputs.targetAngle - localPlayerRef.current.currentAngle)
         );
-        const maxTurn = TURN_SPEED * 1.6 * delta;
+        const maxTurn = TURN_SPEED * 1.5 * delta;
         if (Math.abs(diff) <= maxTurn) {
           localPlayerRef.current.currentAngle = mobileInputs.targetAngle;
         } else {
@@ -533,7 +510,7 @@ export function GameScene() {
       gs.players[playerId].armor = localPlayerRef.current.armor;
       gs.players[playerId].power = localPlayerRef.current.power;
 
-      // Send state to server at ~14Hz (70ms) with quantized coordinates (saves 65% bandwidth)
+      // Send state to server at ~14Hz (70ms) with quantized coordinates
       if (now - localPlayerRef.current.lastSendTime > 70) {
         sendPlayerState({
           segments: localPlayerRef.current.segments.map(s => ({ x: roundCoord(s.x), y: roundCoord(s.y) })),
@@ -549,20 +526,14 @@ export function GameScene() {
       }
 
       const aspect = size.width / Math.max(1, size.height);
-      const baseHeight = aspect < 0.8 ? 34 : aspect < 1.2 ? 26 : 22;
-      const targetZ = Math.min(55, Math.max(baseHeight, baseHeight + localPlayerRef.current.score * 0.2));
+      const baseHeight = aspect < 0.8 ? 32 : aspect < 1.2 ? 25 : 20;
+      const targetZ = Math.min(50, Math.max(baseHeight, baseHeight + localPlayerRef.current.score * 0.15));
 
       // Smooth camera follow predicted head
       camera.position.x += (head.x - camera.position.x) * 10 * delta;
       camera.position.y += (head.y - camera.position.y) * 10 * delta;
       camera.position.z += (targetZ - camera.position.z) * 4 * delta;
       camera.lookAt(camera.position.x, camera.position.y, 0);
-
-      // Make directional light follow camera
-      if (lightRef.current) {
-        lightRef.current.position.set(camera.position.x + 10, camera.position.y - 10, 30);
-        lightTarget.position.set(camera.position.x, camera.position.y, 0);
-      }
     } else {
       localPlayerRef.current.active = false;
     }
@@ -574,45 +545,30 @@ export function GameScene() {
 
   return (
     <>
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[20, 20, 30]} intensity={1.0} />
 
-      <directionalLight
-        ref={lightRef}
-        target={lightTarget}
-        castShadow
-        intensity={2}
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
-        shadow-camera-near={0.1}
-        shadow-camera-far={100}
-        shadow-bias={-0.001}
-      />
-      <primitive object={lightTarget} />
-
-      {/* Ground plane to receive shadows */}
-      <mesh receiveShadow position={[0, 0, -0.2]}>
+      {/* Lightweight Ground Plane */}
+      <mesh position={[0, 0, -0.2]}>
         <planeGeometry args={[WORLD_SIZE, WORLD_SIZE]} />
-        <meshStandardMaterial color="#02000d" />
+        <meshBasicMaterial color="#030408" />
       </mesh>
 
       <Grid
         position={[0, 0, -0.1]}
         rotation={[Math.PI / 2, 0, 0]}
         args={[WORLD_SIZE, WORLD_SIZE]}
-        cellSize={1}
-        cellThickness={0.2}
-        cellColor="#2c003e"
-        sectionSize={10}
-        sectionThickness={0.8}
-        sectionColor="#48007a"
-        fadeDistance={100}
-        fadeStrength={1.5}
+        cellSize={1.5}
+        cellThickness={0.15}
+        cellColor="#1a0b2e"
+        sectionSize={15}
+        sectionThickness={0.5}
+        sectionColor="#350e5e"
+        fadeDistance={80}
+        fadeStrength={1.2}
       />
 
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={1} fade speed={1} />
+      <Stars radius={80} depth={40} count={600} factor={3} saturation={0.8} fade speed={0.8} />
 
       <LootItems />
 

@@ -5,7 +5,6 @@
 
 import { useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { GameScene } from './components/GameScene';
 import { useGameStore } from './store/gameStore';
 import { UI } from './components/UI';
@@ -18,24 +17,22 @@ export default function App() {
   }, [connect]);
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none touch-none">
+    <div className="fixed inset-0 w-full h-full bg-[#030408] overflow-hidden select-none touch-none">
       <Canvas
-        shadows
-        dpr={[1, 1.5]}
-        camera={{ position: [0, 0, 50], fov: 60 }}
-        gl={{ antialias: false, powerPreference: 'high-performance' }}
+        dpr={[1, 1.25]}
+        camera={{ position: [0, 0, 40], fov: 60, near: 0.5, far: 200 }}
+        gl={{
+          antialias: false,
+          powerPreference: 'high-performance',
+          depth: true,
+          stencil: false,
+          alpha: false,
+        }}
       >
-        <color attach="background" args={['#050505']} />
+        <color attach="background" args={['#030408']} />
         <Suspense fallback={null}>
           <GameScene />
         </Suspense>
-        <EffectComposer>
-          <Bloom
-            luminanceThreshold={1.4}
-            mipmapBlur
-            intensity={1.2}
-          />
-        </EffectComposer>
       </Canvas>
       <UI />
     </div>
