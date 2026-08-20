@@ -226,10 +226,69 @@ export class UIManager {
       lanConfigRow?.classList.add('flex');
     });
 
+    const lanScanBtn = document.getElementById('lanScanBtn');
+    const lanScanStatus = document.getElementById('lanScanStatus');
+
+    lanScanBtn?.addEventListener('click', async () => {
+      if (lanScanStatus) {
+        lanScanStatus.innerHTML = '🔍 Scanning local Wi-Fi / Hotspot for active host...';
+        lanScanStatus.style.color = '#c084fc';
+      }
+      const candidates = [
+        'http://localhost:3000',
+        'http://192.168.43.1:3000', // Android Hotspot default host
+        'http://172.20.10.1:3000',  // iPhone Hotspot default host
+        'http://192.168.1.1:3000',
+        'http://192.168.0.1:3000',
+      ];
+      if (window.location.port === '3000') {
+        candidates.unshift(window.location.origin);
+      }
+      if (lanIpInput?.value.trim()) {
+        let cur = lanIpInput.value.trim();
+        if (!cur.startsWith('http')) cur = `http://${cur}`;
+        if (!cur.slice(8).includes(':')) cur = `${cur}:3000`;
+        candidates.unshift(cur);
+      }
+
+      let found = null;
+      for (const url of candidates) {
+        try {
+          const res = await fetch(`${url}/api/health`, { method: 'GET', signal: AbortSignal.timeout(1200) });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'ok') {
+              found = url;
+              break;
+            }
+          }
+        } catch {
+          // continue search
+        }
+      }
+
+      if (found) {
+        if (lanIpInput) lanIpInput.value = found.replace(/^https?:\/\//, '');
+        if (lanScanStatus) {
+          lanScanStatus.innerHTML = `🟢 <b>Active Host Found:</b> ${found} (Tap DROP INTO ARENA to join friends!)`;
+          lanScanStatus.style.color = '#4ade80';
+        }
+      } else {
+        if (lanScanStatus) {
+          lanScanStatus.innerHTML = '⚠️ No host detected automatically. Enter host IP manually or run <code>npm start</code> on host PC.';
+          lanScanStatus.style.color = '#facc15';
+        }
+      }
+    });
+
     const lanLocalhostBtn = document.getElementById('lanLocalhostBtn');
     lanLocalhostBtn?.addEventListener('click', () => {
       if (lanIpInput) {
         lanIpInput.value = 'localhost:3000';
+      }
+      if (lanScanStatus) {
+        lanScanStatus.innerHTML = '✓ Selected this device (localhost:3000) as host.';
+        lanScanStatus.style.color = '#4ade80';
       }
     });
 
