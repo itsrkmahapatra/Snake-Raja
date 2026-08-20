@@ -4,30 +4,13 @@
 */
 
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import { Server } from 'socket.io';
 import { createServer } from 'http';
-import {
-  GameState,
-  Player,
-  Loot,
-  KillEvent,
-  WORLD_SIZE,
-  BASE_SPEED,
-  BOOST_SPEED,
-  SIMULATION_TICK_RATE,
-  NETWORK_TICK_RATE,
-  MAX_LOOT,
-  INITIAL_LENGTH,
-  SEGMENT_SPACING,
-  TURN_SPEED,
-  TARGET_WIN_SCORE,
-  ROUND_DURATION_SECS,
-  MAX_PLAYERS,
-  MIN_BOTS,
-  MAX_BOTS,
-  roundCoord,
-} from './src/shared/types.ts';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,11 +19,32 @@ const io = new Server(httpServer, {
     origin: '*',
   },
   perMessageDeflate: {
-    threshold: 1024, // Enable gzip compression for payloads over 1KB
+    threshold: 1024,
   },
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Constants
+const WORLD_SIZE = 140;
+const BASE_SPEED = 15;
+const BOOST_SPEED = 30;
+const SIMULATION_TICK_RATE = 30;
+const NETWORK_TICK_RATE = 15;
+const MAX_LOOT = 70;
+const INITIAL_LENGTH = 10;
+const SEGMENT_SPACING = 0.5;
+const TURN_SPEED = Math.PI * 3;
+const TARGET_WIN_SCORE = 250;
+const ROUND_DURATION_SECS = 180;
+
+const MAX_PLAYERS = 10;
+const MIN_BOTS = 3;
+const MAX_BOTS = 4;
+
+function roundCoord(val) {
+  return Math.round(val * 10) / 10;
+}
 
 const COLORS = [
   '#00ffff', // cyan star
@@ -58,7 +62,7 @@ const BOT_NAMES = [
   'CyberVenom', 'RajaStriker', 'TitanSerpent', 'CosmoDrake', 'BlitzAnaconda'
 ];
 
-const state: GameState = {
+const state = {
   players: {},
   loot: {},
   leaderboard: [],
@@ -76,23 +80,23 @@ const state: GameState = {
 
 let lootCounter = 1;
 
-function spawnLoot(x?: number, y?: number, value = 1, color?: string, force = false, specificType?: string) {
+function spawnLoot(x, y, value = 1, color, force = false, specificType) {
   if (!force && Object.keys(state.loot).length >= MAX_LOOT) return;
   const id = `l_${lootCounter++}`;
   if (lootCounter > 99999) lootCounter = 1;
 
   const types = ['medkit', 'ammo', 'armor', 'weapon'];
-  const type = specificType ?? types[Math.floor(Math.random() * types.length)];
-  const rawX = x ?? (Math.random() - 0.5) * (WORLD_SIZE - 10);
-  const rawY = y ?? (Math.random() - 0.5) * (WORLD_SIZE - 10);
+  const type = specificType || types[Math.floor(Math.random() * types.length)];
+  const rawX = x !== undefined ? x : (Math.random() - 0.5) * (WORLD_SIZE - 10);
+  const rawY = y !== undefined ? y : (Math.random() - 0.5) * (WORLD_SIZE - 10);
 
   state.loot[id] = {
     id,
     x: roundCoord(rawX),
     y: roundCoord(rawY),
     value,
-    color: color ?? COLORS[Math.floor(Math.random() * COLORS.length)],
-    type
+    color: color || COLORS[Math.floor(Math.random() * COLORS.length)],
+    type,
   };
 }
 
@@ -104,7 +108,7 @@ for (let i = 0; i < 60; i++) {
 let playerCounter = 1;
 let botCounter = 1;
 
-function createBot(name: string, isTitan = false): Player {
+function createBot(name, isTitan = false) {
   const botId = `b_${botCounter++}`;
   const color = isTitan ? '#ffd700' : COLORS[Math.floor(Math.random() * COLORS.length)];
   const headTypes = ['skull', 'robot', 'snake'];
@@ -142,15 +146,15 @@ function createBot(name: string, isTitan = false): Player {
   };
 }
 
-// Dynamically target random 3 or 4 bots
+// Random 3 to 4 bots
 let targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
 
 function maintainBots() {
-  const activeBots = Object.values(state.players).filter(p => p.isBot && p.state === 'alive');
+  const activeBots = Object.values(state.players).filter((p) => p.isBot && p.state === 'alive');
 
   if (activeBots.length < targetBotCount && state.match.status === 'playing') {
-    const existingNames = new Set(Object.values(state.players).map(p => p.name));
-    const availableNames = BOT_NAMES.filter(n => !existingNames.has(n));
+    const existingNames = new Set(Object.values(state.players).map((p) => p.name));
+    const availableNames = BOT_NAMES.filter((n) => !existingNames.has(n));
     const name = availableNames.length > 0
       ? availableNames[Math.floor(Math.random() * availableNames.length)]
       : `Gladiator_${Math.floor(Math.random() * 99)}`;
@@ -159,18 +163,17 @@ function maintainBots() {
   }
 }
 
-// Spawn initial random 3 or 4 bots
 for (let i = 0; i < targetBotCount; i++) {
   maintainBots();
 }
 
 let killCounter = 1;
-function recordKill(killerId: string, victimId: string) {
+function recordKill(killerId, victimId) {
   const killer = state.players[killerId];
   const victim = state.players[victimId];
   if (!victim) return;
 
-  const killEvent: KillEvent = {
+  const killEvent = {
     id: `k_${killCounter++}`,
     killerId: killer ? killer.id : 'arena',
     killerName: killer ? killer.name : 'Arena Hazard',
@@ -198,7 +201,7 @@ function recordKill(killerId: string, victimId: string) {
   io.emit('kill_event', killEvent);
 }
 
-function triggerWin(winner: Player) {
+function triggerWin(winner) {
   if (state.match.status === 'ended') return;
   state.match.status = 'ended';
   state.match.winner = {
@@ -232,10 +235,8 @@ function restartRound() {
   state.match.nextRoundCountdown = 0;
   state.currentEvent = null;
 
-  // Pick random 3 or 4 bots for new round
   targetBotCount = Math.floor(Math.random() * (MAX_BOTS - MIN_BOTS + 1)) + MIN_BOTS;
 
-  // Reset all players
   for (const id in state.players) {
     const p = state.players[id];
     const startX = roundCoord((Math.random() - 0.5) * (WORLD_SIZE - 30));
@@ -260,7 +261,6 @@ function restartRound() {
     p.isBountyTarget = false;
   }
 
-  // Reset loot
   state.loot = {};
   for (let i = 0; i < 60; i++) {
     spawnLoot();
@@ -292,7 +292,7 @@ function handleArenaEvents() {
     eventTimer++;
     if (eventTimer >= 50) {
       eventTimer = 0;
-      const eventTypes: ('frenzy' | 'bounty' | 'titan' | 'storm')[] = ['frenzy', 'bounty', 'titan', 'storm'];
+      const eventTypes = ['frenzy', 'bounty', 'titan', 'storm'];
       const chosen = eventTypes[Math.floor(Math.random() * eventTypes.length)];
       const evId = `e_${eventCounter++}`;
 
@@ -307,7 +307,7 @@ function handleArenaEvents() {
           timeRemaining: 20,
         };
       } else if (chosen === 'bounty') {
-        const alivePlayers = Object.values(state.players).filter(p => p.state === 'alive');
+        const alivePlayers = Object.values(state.players).filter((p) => p.state === 'alive');
         if (alivePlayers.length > 0) {
           const sorted = alivePlayers.sort((a, b) => b.score - a.score);
           const target = sorted[0];
@@ -325,7 +325,7 @@ function handleArenaEvents() {
           };
         }
       } else if (chosen === 'titan') {
-        const currentBots = Object.values(state.players).filter(p => p.isBot && p.state === 'alive');
+        const currentBots = Object.values(state.players).filter((p) => p.isBot && p.state === 'alive');
         if (currentBots.length < MAX_BOTS) {
           const titan = createBot('TITAN', true);
           state.players[titan.id] = titan;
@@ -354,10 +354,9 @@ function handleArenaEvents() {
   }
 }
 
-// Bot AI Update Routine
-function updateBots(delta: number) {
+// Bot AI Routine
+function updateBots(delta) {
   if (state.match.status !== 'playing') return;
-
   const lootArray = Object.values(state.loot);
 
   for (const id in state.players) {
@@ -365,8 +364,6 @@ function updateBots(delta: number) {
     if (!bot.isBot || bot.state !== 'alive' || bot.segments.length === 0) continue;
 
     const head = bot.segments[0];
-
-    // Find nearest loot
     let targetX = 0;
     let targetY = 0;
     let foundTarget = false;
@@ -383,7 +380,6 @@ function updateBots(delta: number) {
       }
     }
 
-    // Boundary avoidance
     const boundary = WORLD_SIZE / 2 - 15;
     if (Math.abs(head.x) > boundary || Math.abs(head.y) > boundary) {
       targetX = 0;
@@ -406,7 +402,6 @@ function updateBots(delta: number) {
       y: roundCoord(head.y + Math.sin(bot.currentAngle) * speed * delta),
     };
 
-    // Keep in world bounds
     const worldLimit = WORLD_SIZE / 2;
     newHead.x = Math.max(-worldLimit, Math.min(worldLimit, newHead.x));
     newHead.y = Math.max(-worldLimit, Math.min(worldLimit, newHead.y));
@@ -418,7 +413,6 @@ function updateBots(delta: number) {
       bot.segments.pop();
     }
 
-    // Bot collects loot
     for (const lootId in state.loot) {
       const loot = state.loot[lootId];
       const dx = newHead.x - loot.x;
@@ -441,9 +435,8 @@ function updateBots(delta: number) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('join', (payload?: string | { name?: string; headType?: string }) => {
-    // Check maximum players limit (10 players)
-    const currentRealPlayers = Object.values(state.players).filter(p => !p.isBot && p.state === 'alive').length;
+  socket.on('join', (payload) => {
+    const currentRealPlayers = Object.values(state.players).filter((p) => !p.isBot && p.state === 'alive').length;
     if (currentRealPlayers >= MAX_PLAYERS) {
       socket.emit('room_full', { maxPlayers: MAX_PLAYERS });
       return;
@@ -489,17 +482,7 @@ io.on('connection', (socket) => {
     socket.emit('init', socket.id);
   });
 
-  socket.on('update_state', (data: {
-    segments: any[],
-    score: number,
-    currentAngle: number,
-    isBoosting: boolean,
-    state: string,
-    health: number,
-    armor: number,
-    power: number,
-    killedBy?: string
-  }) => {
+  socket.on('update_state', (data) => {
     const player = state.players[socket.id];
     if (player && player.state === 'alive') {
       player.segments = data.segments;
@@ -510,7 +493,6 @@ io.on('connection', (socket) => {
       if (data.armor !== undefined) player.armor = data.armor;
       if (data.power !== undefined) player.power = data.power;
 
-      // Check win condition
       if (player.score >= TARGET_WIN_SCORE && state.match.status === 'playing') {
         triggerWin(player);
       }
@@ -520,7 +502,6 @@ io.on('connection', (socket) => {
         if (data.killedBy) {
           recordKill(data.killedBy, socket.id);
         }
-        // Drop loot (compact: every 3rd segment)
         player.segments.forEach((seg, i) => {
           if (i % 3 === 0) spawnLoot(seg.x, seg.y, 2, player.color, true);
         });
@@ -528,13 +509,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('player_kill', (data: { victimId: string }) => {
+  socket.on('player_kill', (data) => {
     if (data && data.victimId) {
       recordKill(socket.id, data.victimId);
     }
   });
 
-  socket.on('collect_loot', (lootId: string) => {
+  socket.on('collect_loot', (lootId) => {
     if (state.loot[lootId]) {
       delete state.loot[lootId];
     }
@@ -552,24 +533,20 @@ io.on('connection', (socket) => {
 });
 
 let simTickCount = 0;
-let broadcastTickCount = 0;
 let secondCounter = 0;
 const SIM_DELTA = 1 / SIMULATION_TICK_RATE;
 
-// 1. Simulation Game Loop (30Hz for physics & bot movement)
+// 1. Simulation Loop (30Hz)
 setInterval(() => {
   simTickCount++;
   secondCounter += SIM_DELTA;
 
-  // Bot updates
   updateBots(SIM_DELTA);
 
-  // Maintain bots count (every ~2 seconds)
   if (simTickCount % 60 === 0) {
     maintainBots();
   }
 
-  // Once per second tasks
   if (secondCounter >= 1.0) {
     secondCounter = 0;
     handleArenaEvents();
@@ -577,7 +554,7 @@ setInterval(() => {
     if (state.match.status === 'playing') {
       state.match.roundTimeRemaining = Math.max(0, state.match.roundTimeRemaining - 1);
       if (state.match.roundTimeRemaining <= 0) {
-        const alivePlayers = Object.values(state.players).filter(p => p.state === 'alive');
+        const alivePlayers = Object.values(state.players).filter((p) => p.state === 'alive');
         if (alivePlayers.length > 0) {
           const topLeader = alivePlayers.sort((a, b) => b.score - a.score)[0];
           triggerWin(topLeader);
@@ -593,7 +570,6 @@ setInterval(() => {
     }
   }
 
-  // Boosting loot drops & health regen
   for (const id in state.players) {
     const player = state.players[id];
     if (player.state === 'alive') {
@@ -611,23 +587,18 @@ setInterval(() => {
     simTickCount = 0;
   }
 
-  // Rare loot spawn to keep arena balanced without clutter
   if (Math.random() < 0.1) {
     spawnLoot();
   }
-
 }, 1000 / SIMULATION_TICK_RATE);
 
-// 2. Network Broadcast Loop (15Hz -> Saves 75% socket bandwidth)
+// 2. Network Broadcast Loop (15Hz)
 setInterval(() => {
-  broadcastTickCount++;
-
-  // Update leaderboard (top 5 only to reduce payload)
   state.leaderboard = Object.values(state.players)
-    .filter(p => p.state === 'alive')
+    .filter((p) => p.state === 'alive')
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
-    .map(p => ({
+    .map((p) => ({
       id: p.id,
       name: p.name,
       score: Math.floor(p.score),
@@ -636,7 +607,6 @@ setInterval(() => {
       headType: p.headType,
     }));
 
-  // Check highest score for win condition
   if (state.match.status === 'playing' && state.leaderboard.length > 0) {
     const top = state.leaderboard[0];
     if (top.score >= TARGET_WIN_SCORE) {
@@ -645,33 +615,20 @@ setInterval(() => {
     }
   }
 
-  // Broadcast state at 15Hz
   io.emit('state', state);
-
 }, 1000 / NETWORK_TICK_RATE);
 
-async function startServer() {
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
-  });
+// Static file hosting
+app.use(express.static(__dirname));
 
-  app.get('/ping', (req, res) => {
-    res.status(200).send('pong');
-  });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static('dist'));
-  }
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
-
-startServer();
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Snake Raja Server running on http://localhost:${PORT}`);
+});
